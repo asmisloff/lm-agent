@@ -14,6 +14,7 @@ import java.util.Objects;
 
 public class FileUtil {
 
+    // todo: JavaDoc
     public static List<String> prompt() {
         try (var reader = Files.newBufferedReader(Path.of("prompt.md"))) {
             return reader.lines().toList();
@@ -30,8 +31,9 @@ public class FileUtil {
         }
     }
 
-    public static List<Path> find(String pattern) {
-        try (var files = Files.walk(Path.of("."))) {
+    // todo: JavaDoc
+    public static List<Path> find(Path root, String pattern) {
+        try (var files = Files.walk(root)) {
             return files
                     .filter(path -> Files.isRegularFile(path) && containsIgnoreCase(path.toString(), pattern))
                     .toList();
