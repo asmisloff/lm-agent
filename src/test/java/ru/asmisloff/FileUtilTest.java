@@ -135,20 +135,6 @@ class FileUtilTest {
         }
     }
 
-    /**
-     * Вспомогательный метод (заглушка для компиляции).
-     */
-    private static boolean containsIgnoreCase(String str, String pattern) {
-        return str.toLowerCase().contains(pattern.toLowerCase());
-    }
-
-    // Необходимый импорт для Collections.emptyList()
-    private static final class Collections {
-        static <T> List<T> emptyList() {
-            return java.util.Collections.emptyList();
-        }
-    }
-
     @Test
     void append_shouldCopyContentCorrectly() throws IOException {
         // Подготовка

@@ -64,7 +64,7 @@ public class Props {
     }
 
     private static void validate() {
-        String NO_PARAM = "Не задан параметр ";
+        final String NO_PARAM = "Не задан параметр ";
         if (baseUrl == null) {
             throw new IllegalStateException(NO_PARAM + "base.url");
         }
