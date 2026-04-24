@@ -1,44 +1,49 @@
 package ru.asmisloff;
 
+import lombok.experimental.UtilityClass;
+import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Collections;
-import java.util.Objects;
 
+@Log4j2
+@UtilityClass
 public class FileUtil {
 
-    // todo: JavaDoc
-    public static List<String> prompt() {
-        try (var reader = Files.newBufferedReader(Path.of("prompt.md"))) {
-            return reader.lines().toList();
+    /**
+     * Читает содержимое файла в одну строку.
+     *
+     * @param path Пусть к файлу.
+     * @return Строка с содержимым файла.
+     */
+    public static String readString(Path path) {
+        try {
+            return Files.readString(path);
         } catch (IOException ex) {
-            System.out.println("Не удалось прочитать prompt.md из файловой системы");
-        }
-        try (var ins = FileUtil.class.getResourceAsStream("prompt.md");
-             var reader = new BufferedReader(new InputStreamReader(Objects.requireNonNull(ins)))
-        ) {
-            return reader.lines().toList();
-        } catch (IOException | NullPointerException ex) {
-            System.out.println("Не удалось прочитать промпт из classpath");
-            throw new IllegalStateException(ex);
+            throw new IllegalStateException(String.format("Не удалось прочитать файл %s", path.toAbsolutePath()), ex);
         }
     }
 
-    // todo: JavaDoc
+    /**
+     * Найти все файлы, имена которых содержат {@code pattern} без учета регистра.
+     *
+     * @param root    Путь к корневой директории для поиска файлов.
+     * @param pattern Подстрока, по вхождению которой отбираются файлы.
+     * @return Список путей к отобранным файлам.
+     */
     public static List<Path> find(Path root, String pattern) {
         try (var files = Files.walk(root)) {
             return files
                     .filter(path -> Files.isRegularFile(path) && containsIgnoreCase(path.toString(), pattern))
                     .toList();
         } catch (IOException e) {
-            System.out.println("Не удалось получить список файлов");
+            log.error("Не удалось получить список файлов");
             return Collections.emptyList();
         }
     }
