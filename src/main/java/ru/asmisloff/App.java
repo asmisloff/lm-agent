@@ -27,8 +27,8 @@ public class App {
     }
 
     private static void execPrompt() {
-        var prompt = FileUtil.readString(Path.of(Props.getPromptFileName()));
-        log.debug(prompt);
+        var prompt = new Prompt(Path.of(Props.getPromptFileName()));
+        log.debug(String.join("\n", prompt.getUserLines()));
 
         var paramsBuilder = ChatCompletionCreateParams.builder()
             .model(Props.getModel())
@@ -36,8 +36,8 @@ public class App {
                                   Ты опытный разработчик на Java.
                                   Ты пишешь надежный, понятный и эффективный код. Комментарии и JavaDoc на русском языке, очень лаконично.
                                   Ты выводишь только код, комментарии и JavaDoc в markdown. Без дополнительных пояснений."""
-            )
-            .addUserMessage(prompt);
+            );
+        prompt.getUserLines().forEach(paramsBuilder::addUserMessage);
 
         var client = new OpenAIOkHttpClient.Builder()
             .baseUrl(Props.getBaseUrl())

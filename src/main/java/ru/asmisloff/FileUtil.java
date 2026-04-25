@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 @Log4j2
 @UtilityClass
@@ -17,7 +18,16 @@ public class FileUtil {
      *
      * @param path Пусть к файлу.
      * @return Строка с содержимым файла.
+     * @throws IllegalStateException в случае ошибки при работе с файлом.
      */
+    public static List<String> readLines(Path path) {
+        try {
+            return Files.readAllLines(path);
+        } catch (IOException ex) {
+            throw new IllegalStateException(String.format("Не удалось прочитать файл %s", path.toAbsolutePath()), ex);
+        }
+    }
+
     public static String readString(Path path) {
         try {
             return Files.readString(path);
