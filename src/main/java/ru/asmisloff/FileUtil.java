@@ -4,13 +4,9 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Collections;
 
 @Log4j2
 @UtilityClass
@@ -35,16 +31,24 @@ public class FileUtil {
      *
      * @param root    Путь к корневой директории для поиска файлов.
      * @param pattern Подстрока, по вхождению которой отбираются файлы.
-     * @return Список путей к отобранным файлам.
      */
-    public static List<Path> find(Path root, String pattern) {
+    public static void find(Path root, String pattern, Appendable out) {
         try (var files = Files.walk(root)) {
-            return files
-                    .filter(path -> Files.isRegularFile(path) && containsIgnoreCase(path.toString(), pattern))
-                    .toList();
+            files
+                .filter(Files::isRegularFile)
+                .map(Path::toString)
+                .filter(path -> containsIgnoreCase(path, pattern))
+                .forEach(path -> {
+                    try {
+                        out.append(path);
+                        out.append('\n');
+                    } catch (IOException ex) {
+                        log.error("Ошибка при выводе имени файла", ex);
+                        System.out.println(path);
+                    }
+                });
         } catch (IOException e) {
             log.error("Не удалось получить список файлов");
-            return Collections.emptyList();
         }
     }
 

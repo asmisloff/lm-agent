@@ -9,9 +9,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -34,9 +31,11 @@ class FileUtilTest {
         Path otherFile = tempDir.resolve("Other.txt");
         Files.createFile(otherFile);
 
-        List<Path> result = FileUtil.find(tempDir, "testfile.txt");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "testfile.txt", out);
+        out.setLength(out.length() - 1);
 
-        assertEquals(List.of(targetFile), result);
+        assertEquals(targetFile.toString(), out.toString());
     }
 
     /**
@@ -48,23 +47,25 @@ class FileUtilTest {
         Files.createFile(tempDir.resolve("banana-cake.txt"));
         Files.createFile(tempDir.resolve("cherry-tart.txt"));
 
-        List<Path> result = FileUtil.find(tempDir, "pie");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "pie", out);
+        out.setLength(out.length() - 1);
 
-        assertEquals(1, result.size());
-        assertEquals(expected.toAbsolutePath(), result.get(0));
+        assertEquals(expected.toString(), out.toString());
     }
 
     /**
-     * Возвращает пустой список, если совпадений нет.
+     * Пустой результат, если совпадений нет.
      */
     @Test
     void find_noMatchingFiles_returnsEmptyList() throws IOException {
         Files.createFile(tempDir.resolve("data.json"));
         Files.createFile(tempDir.resolve("config.yml"));
 
-        List<Path> result = FileUtil.find(tempDir, "xml");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "xml", out);
 
-        assertTrue(result.isEmpty());
+        assertTrue(out.isEmpty());
     }
 
     /**
@@ -77,9 +78,10 @@ class FileUtilTest {
         Path dir = tempDir.resolve("subdir");
         Files.createDirectory(dir);
 
-        List<Path> result = FileUtil.find(tempDir, "subdir");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "subdir", out);
 
-        assertTrue(result.isEmpty());
+        assertTrue(out.isEmpty());
     }
 
     /**
@@ -92,9 +94,11 @@ class FileUtilTest {
         Path targetFile = subDir.resolve("target.dat");
         Files.createFile(targetFile);
 
-        List<Path> result = FileUtil.find(tempDir, "target");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "target", out);
+        out.setLength(out.length() - 1);
 
-        assertEquals(List.of(targetFile), result);
+        assertEquals(targetFile.toString(), out.toString());
     }
 
     /**
@@ -107,28 +111,33 @@ class FileUtilTest {
         Files.createFile(file1);
         Files.createFile(file2);
 
-        List<Path> result = FileUtil.find(tempDir, "");
+        var out = new StringBuilder();
+        FileUtil.find(tempDir, "", out);
+        out.setLength(out.length() - 1);
 
-        assertEquals(Set.of(file1, file2), new HashSet<>(result));
+        assertEquals(
+            String.join("\n", file1.toString(), file2.toString()),
+            out.toString()
+        );
     }
 
     /**
-     * Тест: Возвращает пустой список при IOException.
+     * Пустой ответ при IOException.
      * Заменяет текущую рабочую директорию на несуществующую для моделирования ошибки.
      */
     @Test
     void find_ioException_returnsEmptyListAndPrintsMessage() {
         // Сохраняем оригинальную рабочую директорию
-        Path originalDir = Path.of(".").toAbsolutePath();
+        Path originalDir = Path.of(".");
 
         try {
             // Меняем текущую директорию на несуществующий путь для вызова IOException
             System.setProperty("user.dir", "/nonexistent/path/12345");
 
-            List<Path> result = FileUtil.find(tempDir, "test");
+            var out = new StringBuilder();
+            FileUtil.find(tempDir, "test", out);
 
-            assertTrue(result.isEmpty());
-            // Проверка вывода на консоль требует мокирования System.out, опущено для простоты
+            assertTrue(out.isEmpty());
         } finally {
             // Восстанавливаем оригинальную директорию
             System.setProperty("user.dir", originalDir.toString());
@@ -197,10 +206,10 @@ class FileUtilTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "Текст с кириллицей: Привет мир!",
-            "Text with special chars: !@#$%^&*()",
-            "Multiline\ntext\nwith\nline\nbreaks",
-            "Text with unicode: © € А"
+        "Текст с кириллицей: Привет мир!",
+        "Text with special chars: !@#$%^&*()",
+        "Multiline\ntext\nwith\nline\nbreaks",
+        "Text with unicode: © € А"
     })
     void append_shouldHandleVariousContent(String content) throws IOException {
         // Подготовка
@@ -227,7 +236,7 @@ class FileUtilTest {
         // Действие и проверка
         try (BufferedWriter writer = Files.newBufferedWriter(destFile)) {
             assertThrows(IllegalArgumentException.class,
-                    () -> FileUtil.append(null, writer));
+                         () -> FileUtil.append(null, writer));
         } catch (IOException e) {
             fail("Неожиданное исключение: " + e.getMessage());
         }
@@ -241,7 +250,7 @@ class FileUtilTest {
 
         // Действие и проверка
         assertThrows(IllegalArgumentException.class,
-                () -> FileUtil.append(sourceFile, null));
+                     () -> FileUtil.append(sourceFile, null));
     }
 
     @Test
@@ -253,7 +262,7 @@ class FileUtilTest {
         // Действие и проверка
         try (BufferedWriter writer = Files.newBufferedWriter(destFile)) {
             assertThrows(IOException.class,
-                    () -> FileUtil.append(nonExistentFile, writer));
+                         () -> FileUtil.append(nonExistentFile, writer));
         } catch (IOException e) {
             fail("Неожиданное исключение: " + e.getMessage());
         }
