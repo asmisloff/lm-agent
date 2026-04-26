@@ -1,6 +1,7 @@
 package ru.asmisloff;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,6 +16,7 @@ import static java.lang.Character.isWhitespace;
 /**
  * Класс для загрузки и обработки промптов из файлов.
  */
+@Log4j2
 public class Prompt {
 
     private String system; // todo: системный. \review \test
@@ -39,8 +41,7 @@ public class Prompt {
      */
     private static final List<ExtToLang> codeFileExtToMdTag = List.of(
         new ExtToLang(".java", "```Java"),
-        new ExtToLang(".kt", "```Kotlin"),
-        new ExtToLang(".py", "```Python")
+        new ExtToLang(".kt", "```Kotlin")
     );
 
     private int idx = 0;
@@ -97,18 +98,15 @@ public class Prompt {
             --end;
         }
         var path = Path.of(line.substring(idx, end));
-
-        var content = FileUtil.readString(path);
-
-        var fileName = path.getFileName().toString();
-        var mdTag = getMdTag(fileName);
-        if (mdTag != null) {
-            userLines.add(mdTag);
-            userLines.add(content);
-            userLines.add("```");
-        } else {
-            userLines.add(content);
+        var mdTag = getMdTag(path.getFileName().toString());
+        if (mdTag == null) {
+            userLines.add(FileUtil.readString(path));
+            return;
         }
+
+        userLines.add(mdTag);
+        userLines.add(FileUtil.readCode(path));
+        userLines.add("```");
     }
 
     /**

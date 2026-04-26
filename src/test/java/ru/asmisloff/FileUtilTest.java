@@ -267,4 +267,111 @@ class FileUtilTest {
             fail("Неожиданное исключение: " + e.getMessage());
         }
     }
+
+    /**
+     * Читает Java-файл без package и import.
+     */
+    @Test
+    void readCode_readsJavaFileExcludingPackageAndImports() throws IOException {
+        String content = """
+            package com.example;
+              import java.util.List;
+            \s
+            public class MyClass {
+                public void method() {}
+            }
+            """;
+        Path file = createJavaFile(content);
+        String result = FileUtil.readCode(file);
+
+        assertEquals(
+            """
+                public class MyClass {
+                    public void method() {}
+                }""",
+            result
+        );
+    }
+
+    /**
+     * Не удаляет импорт/пакет из Java-файла, если они находятся внутри кода (внутри строк или комментариев).
+     */
+    @Test
+    void readCode_preservesPackageImportInsideStringsAndComments() throws IOException {
+        String content = """
+            package com.example;
+            import java.util.*;
+            
+            public class Test {
+                // import should not be removed
+                String s = "package com.test";
+            }
+            """;
+        Path file = createJavaFile(content);
+        String result = FileUtil.readCode(file);
+
+        assertEquals(
+            """
+                public class Test {
+                    // import should not be removed
+                    String s = "package com.test";
+                }""",
+            result
+        );
+    }
+
+    /**
+     * Обрабатывает Java-файл без package и import (читает весь файл).
+     */
+    @Test
+    void readCode_withoutPackageOrImports_returnsWholeFile() throws IOException {
+        String content = """
+            public class Test {
+                public static void main(String[] args) {}
+            }
+            """;
+        Path file = createJavaFile(content);
+        String result = FileUtil.readCode(file);
+
+        assertEquals(content.stripTrailing(), result);
+    }
+
+    /**
+     * Обрабатывает пустой Java-файл (только пробельные символы).
+     */
+    @Test
+    void readCode_emptyOrWhitespaceFile_returnsEmptyString() throws IOException {
+        Path file = createJavaFile("   \n\t\n  \n");
+        String result = FileUtil.readCode(file);
+        assertEquals("", result);
+    }
+
+    /**
+     * Обрабатывает файл с одним package, без остального контента.
+     */
+    @Test
+    void readCode_onlyPackage_returnsEmptyString() throws IOException {
+        Path file = createJavaFile("package com.example;\n");
+        String result = FileUtil.readCode(file);
+        assertEquals("", result);
+    }
+
+    /**
+     * Обрабатывает файл с одним import, без остального контента.
+     */
+    @Test
+    void readCode_onlyImport_returnsEmptyString() throws IOException {
+        Path file = createJavaFile("import java.util.List;\n");
+        String result = FileUtil.readCode(file);
+        assertEquals("", result);
+    }
+
+    /**
+     * Создает временный Java-файл с указанным содержимым.
+     */
+    private Path createJavaFile(String content) throws IOException {
+        Path file = tempDir.resolve("Test.java");
+        Files.writeString(file, content);
+        return file;
+    }
 }
