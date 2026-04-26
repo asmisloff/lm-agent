@@ -34,6 +34,8 @@ public class Prompt {
      */
     private final Map<String, Consumer<String>> replacementFunctions = Map.of(
         "\\i", this::addFileContent
+        // todo: \m модель
+        // \is include-search
     );
 
     /**

@@ -92,33 +92,6 @@ public class FileUtil {
         }
     }
 
-    /**
-     * Копирует содержимое текстового файла в выходной поток.
-     *
-     * @param sourcePath путь к исходному файлу
-     * @param writer     BufferedWriter для записи результатов
-     * @throws IOException              если произошла ошибка ввода-вывода
-     * @throws IllegalArgumentException если sourcePath или writer равны null
-     */
-    public static void append(Path sourcePath, BufferedWriter writer) throws IOException {
-        if (sourcePath == null) {
-            throw new IllegalArgumentException("Не задан sourcePath");
-        }
-        if (writer == null) {
-            throw new IllegalArgumentException("Не задан writer");
-        }
-
-        try (BufferedReader reader = Files.newBufferedReader(sourcePath)) {
-            char[] buffer = new char[8192]; // 8KB буфер
-            int charsRead;
-
-            while ((charsRead = reader.read(buffer)) != -1) {
-                writer.write(buffer, 0, charsRead);
-            }
-        }
-    }
-
-
     private static boolean containsIgnoreCase(@NotNull String str, @NotNull String substr) {
         for (int i = 0; i <= str.length() - substr.length(); i++) {
             if (str.regionMatches(true, i, substr, 0, substr.length())) {
