@@ -55,6 +55,27 @@ class PromptTest {
     }
 
     @Test
+    @DisplayName("Обработка тега \\i с Java-файлом: обрамление в markdown-блок")
+    void handleJavaFileWithTag() throws IOException {
+        Path javaFile = tempDir.resolve("Example.java");
+        String javaContent = "public class Example { public static void main(String[] args) {} }";
+        Files.write(javaFile, javaContent.getBytes());
+
+        String promptContent = "\\i " + javaFile;
+        Files.write(promptFile, promptContent.getBytes());
+
+        Prompt prompt = new Prompt(promptFile);
+        List<String> result = prompt.getUserLines();
+
+        assertEquals("""
+                         ```Java
+                         public class Example { public static void main(String[] args) {} }
+                         ```""",
+                     String.join("\n", result)
+        );
+    }
+
+    @Test
     @DisplayName("Обработка пустого файла промпта")
     void handleEmptyPromptFile() throws IOException {
         Files.write(promptFile, new byte[0]);
