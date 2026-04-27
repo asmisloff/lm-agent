@@ -30,8 +30,12 @@ public class App {
         var prompt = new Prompt(Path.of(Props.getPromptFileName()));
         log.debug(String.join("\n", prompt.getUserLines()));
 
+        // Модель из тега \m имеет приоритет над настройками
+        var model = prompt.getModel() != null ? prompt.getModel() : Props.getModel();
+        log.info("Используемая модель: {}", model);
+
         var paramsBuilder = ChatCompletionCreateParams.builder()
-            .model(Props.getModel())
+            .model(model)
             .addSystemMessage("""
                                   Ты опытный разработчик на Java.
                                   Ты пишешь надежный, понятный и эффективный код. Комментарии и JavaDoc на русском языке, очень лаконично.
@@ -43,7 +47,7 @@ public class App {
             .baseUrl(Props.getBaseUrl())
             .apiKey(Props.getApiKey())
             .build();
-        log.info("Отправка запроса к {}", Props.getModel());
+        log.info("Отправка запроса к {}", model);
         try (var completion = client.chat().completions().createStreaming(paramsBuilder.build())) {
             try (var writer = Files.newBufferedWriter(Path.of(Props.getAnswerFileName()))) {
                 processCompletions(completion, writer);

@@ -24,26 +24,32 @@ public class Prompt {
     private List<String> dialog; // todo: диалог "пользователь-ассистент"
 
     /**
+     * Модель, выбранная через тег \m. Если не задана — null.
+     */
+    @Getter
+    private String model;
+
+    /**
      * Элементы пользовательского промпта.
      */
     @Getter
     private final List<String> userLines = new ArrayList<>();
 
     /**
-     * Функции замены. Ключ - тег, значение - функция, принимающая строку исходную строку и возвращающая замененную.
+     * Функции замены. Ключ - тег, значение - функция, принимающая исходную строку и возвращающая замененную.
      */
     private final Map<String, Consumer<String>> replacementFunctions = Map.of(
-        "\\i", this::addFileContent
-        // todo: \m модель
-        // \is include-search
+            "\\i", this::addFileContent,
+            "\\m", this::setModel
+            // \is include-search
     );
 
     /**
      * Поддерживаемые расширения файлов для обрамления в markdown-блок.
      */
     private static final List<ExtToLang> codeFileExtToMdTag = List.of(
-        new ExtToLang(".java", "```Java"),
-        new ExtToLang(".kt", "```Kotlin")
+            new ExtToLang(".java", "```Java"),
+            new ExtToLang(".kt", "```Kotlin")
     );
 
     private int idx = 0;
@@ -91,7 +97,24 @@ public class Prompt {
         while (idx < line.length() && isWhitespace(line.charAt(idx))) {
             ++idx;
         }
+        if (idx == line.length()) {
+            throw new IllegalStateException("Некорректная управляющая строка: %s".formatted(line));
+        }
         return replacementFunctions.get(line.substring(tagBegin, tagEnd));
+    }
+
+    /**
+     * Устанавливает модель из строки тега \m.
+     *
+     * @param line строка с тегом \m и именем модели.
+     */
+    private void setModel(String line) {
+        var end = line.length();
+        while (end > idx && line.charAt(end - 1) == '\n') {
+            --end;
+        }
+        model = line.substring(idx, end).strip();
+        log.debug("Модель из промпта: {}", model);
     }
 
     private void addFileContent(String line) {
@@ -126,5 +149,5 @@ public class Prompt {
         return null;
     }
 
-    private record ExtToLang(String ext, String lang) { }
+    private record ExtToLang(String ext, String lang) {}
 }
