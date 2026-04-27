@@ -75,10 +75,10 @@ public class Props {
             throw new IllegalStateException(NO_PARAM + "api.key");
         }
         if (promptFileName == null) {
-            throw new IllegalStateException(NO_PARAM + "prompt.file.name");
+            throw new IllegalStateException(NO_PARAM + "prompt.filename");
         }
         if (answerFileName == null) {
-            throw new IllegalStateException(NO_PARAM + "answer.file.name");
+            throw new IllegalStateException(NO_PARAM + "answer.filename");
         }
     }
 }
