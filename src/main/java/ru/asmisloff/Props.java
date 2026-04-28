@@ -8,6 +8,7 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -75,8 +76,8 @@ public class Props { // todo: убрать статику
         apiKey = getStringOrElse(props, API_KEY, null);
         promptFileName = getStringOrElse(props, PROMPT_FILENAME, "prompt.md");
         answerFileName = getStringOrElse(props, ANSWER_FILENAME, "answer.md");
-        modelAliases = loadModelAliases(props);
-        systemPrompts = loadSystemPrompts(props);
+        modelAliases = getDict(props, MODEL_ALIASES);
+        systemPrompts = getDict(props, SYSTEM_PROMPTS);
         validate();
     }
 
@@ -100,44 +101,31 @@ public class Props { // todo: убрать статику
         }
     }
 
-    private static Map<String, String> loadModelAliases(Map<String, Object> props) {
-        if (props.get(MODEL_ALIASES) instanceof Map<?, ?> aliases) {
-            for (var entry : aliases.entrySet()) {
+    private static Map<String, String> getDict(Map<String, Object> props, String configKey) {
+        Object rawMap = props.get(configKey);
+        if (rawMap instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
                 if (!(entry.getKey() instanceof String && entry.getValue() instanceof String)) {
-                    throw new IllegalStateException("Некорректная структура раздела model-aliases: " + entry);
+                    throw new IllegalStateException(MessageFormat.format("Некорректная структура раздела {0}: {1}", configKey, entry));
                 }
             }
-            //noinspection unchecked
-            return Collections.unmodifiableMap((Map<String, String>) aliases);
+            //noinspection unchecked (фактические типы проверены выше)
+            return Collections.unmodifiableMap((Map<String, String>) map);
         }
-        log.warn("В конфигурации отсутствуют псевдонимы моделей");
-        return Collections.emptyMap();
-    }
-
-    private static Map<String, String> loadSystemPrompts(Map<String, Object> props) {
-        if (props.get(SYSTEM_PROMPTS) instanceof Map<?, ?> systemPromptMap) {
-            for (var entry : systemPromptMap.entrySet()) {
-                if (!(entry.getKey() instanceof String && entry.getValue() instanceof String)) {
-                    throw new IllegalStateException("Некорректная структура раздела system-prompts: " + entry);
-                }
-            }
-            //noinspection unchecked
-            return Collections.unmodifiableMap((Map<String, String>) systemPromptMap);
-        }
-        log.warn("В конфигурации отсутствуют системные промпты");
+        log.warn("В конфигурации отсутствует раздел {}", configKey);
         return Collections.emptyMap();
     }
 
     private static void validate() {
         final String NO_PARAM = "Не задан параметр ";
         if (baseUrl == null) {
-            throw new IllegalStateException(NO_PARAM + "base-url");
+            throw new IllegalStateException(NO_PARAM + BASE_URL);
         }
         if (model == null) {
-            throw new IllegalStateException(NO_PARAM + "model");
+            throw new IllegalStateException(NO_PARAM + MODEL);
         }
         if (apiKey == null) {
-            throw new IllegalStateException(NO_PARAM + "api-key");
+            throw new IllegalStateException(NO_PARAM + API_KEY);
         }
     }
 }
