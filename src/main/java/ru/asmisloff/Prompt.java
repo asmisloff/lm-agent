@@ -19,15 +19,17 @@ import static java.lang.Character.isWhitespace;
 @Log4j2
 public class Prompt {
 
-    private String system; // todo: системный. \review \test
-
-    private List<String> dialog; // todo: диалог "пользователь-ассистент"
-
     /**
      * Модель, выбранная через тег \m. Если не задана — null.
      */
     @Getter
     private String model;
+
+    /**
+     * Системный промпт, выбранный через тег \s. Если не задан — null.
+     */
+    @Getter
+    private String systemPrompt;
 
     /**
      * Элементы пользовательского промпта.
@@ -40,8 +42,8 @@ public class Prompt {
      */
     private final Map<String, Consumer<String>> replacementFunctions = Map.of(
             "\\i", this::addFileContent,
-            "\\m", this::setModel
-            // \is include-search
+            "\\m", this::setModel,
+            "\\s", this::setSystemPrompt
     );
 
     /**
@@ -104,25 +106,50 @@ public class Prompt {
     }
 
     /**
-     * Устанавливает модель из строки тега \m.
+     * Устанавливает модель из строки тега \m. Если указан псевдоним, заменяет его на реальное имя модели.
      *
-     * @param line строка с тегом \m и именем модели.
+     * @param line строка с тегом \m и именем модели или псевдонимом.
      */
     private void setModel(String line) {
+        var modelName = extractTagArgument(line);
+        model = Props.getModelAliases().getOrDefault(modelName, modelName);
+    }
+
+    /**
+     * Устанавливает системный промпт из строки тега \s.
+     * Ищет промпт в словаре system-prompts из конфигурации.
+     *
+     * @param line строка с тегом \s и ключом системного промпта
+     * @throws IllegalStateException если промпт не найден в словаре
+     */
+    private void setSystemPrompt(String line) {
+        var key = extractTagArgument(line);
+        var systemPrompts = Props.getSystemPrompts();
+
+        if (!systemPrompts.containsKey(key)) {
+            throw new IllegalStateException("Системный промпт с ключом '%s' не найден в конфигурации".formatted(key));
+        }
+
+        systemPrompt = systemPrompts.get(key);
+        log.debug("Системный промпт из промпта: {}", key);
+    }
+
+    /**
+     * Извлекает аргумент из теговой строки.
+     *
+     * @param line теговая строка
+     * @return аргумент без начальных и завершающих пробелов
+     */
+    private String extractTagArgument(String line) {
         var end = line.length();
-        while (end > idx && line.charAt(end - 1) == '\n') {
+        while (end > idx && isWhitespace(line.charAt(end - 1))) {
             --end;
         }
-        model = line.substring(idx, end).strip();
-        log.debug("Модель из промпта: {}", model);
+        return line.substring(idx, end);
     }
 
     private void addFileContent(String line) {
-        var end = line.length();
-        while (end > 0 && line.charAt(end - 1) == '\n') {
-            --end;
-        }
-        var path = Path.of(line.substring(idx, end));
+        var path = Path.of(extractTagArgument(line));
         var mdTag = getMdTag(path.getFileName().toString());
         if (mdTag == null) {
             userLines.add(FileUtil.readString(path));
