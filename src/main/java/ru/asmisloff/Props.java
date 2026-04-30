@@ -8,7 +8,6 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -88,10 +87,10 @@ public class Props {
     private String getStringOrElse(Map<String, Object> props, String key, String defaultValue) {
         return Optional.ofNullable(props.get(key))
                 .map(value -> {
-                    if (value instanceof String strValue) {
+                    if (value instanceof String strValue && !strValue.isBlank()) {
                         return strValue;
                     }
-                    throw new IllegalStateException("Некорректное значение параметра %s: %s".formatted(key, value));
+                    throw new IllegalStateException(String.format("Некорректное значение параметра %s: %s", key, value));
                 })
                 .orElse(defaultValue);
     }
@@ -104,19 +103,23 @@ public class Props {
         }
     }
 
-    private Map<String, String> getDict(Map<String, Object> props, String configKey) {
-        Object rawMap = props.get(configKey);
+    private Map<String, String> getDict(Map<String, Object> props, String key) {
+        Object rawMap = props.get(key);
         if (rawMap instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 if (!(entry.getKey() instanceof String && entry.getValue() instanceof String)) {
-                    throw new IllegalStateException(MessageFormat.format("Некорректная структура раздела {0}: {1}", configKey, entry));
+                    throw new IllegalStateException(String.format("Некорректная структура раздела %s: %s", key, entry));
                 }
             }
             //noinspection unchecked (фактические типы проверены выше)
             return Collections.unmodifiableMap((Map<String, String>) map);
         }
-        log.warn("В конфигурации отсутствует раздел {}", configKey);
-        return Collections.emptyMap();
+        if (rawMap == null) {
+            log.warn("В конфигурации отсутствует раздел {}", key);
+            return Collections.emptyMap();
+        } else {
+            throw new IllegalStateException("Некорректный тип значение в разделе " + key);
+        }
     }
 
     private void validate() {
