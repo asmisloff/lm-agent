@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <Properties>
+        <!-- Устанавливаем свойство в file.encoding, если sun.stdout.encoding недоступно (например, при запуске из IDE) -->
+        <Property name="console.encoding" value="${sys:sun.stdout.encoding:-${sys:file.encoding}}" />
+    </Properties>
+
     <Appenders>
         <!-- Консольный аппендер -->
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"
+                           charset="${console.encoding}"/>
         </Console>
     </Appenders>
 
