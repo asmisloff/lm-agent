@@ -76,6 +76,12 @@ public class Prompt {
                 userLines.add(line);
             }
         }
+        if (systemPrompt == null) {
+            systemPrompt = props.getSystemPrompts().get("code");
+            if (systemPrompt != null) {
+                log.debug("Системный промпт не задан явно. По умолчанию выбран code.");
+            }
+        }
     }
 
     /**

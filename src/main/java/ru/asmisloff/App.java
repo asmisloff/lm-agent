@@ -9,16 +9,20 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Главный класс приложения.
+ */
 @Log4j2
 public class App {
 
     public static void main(String[] args) {
         if (args.length == 0) {
             execPrompt();
-        } else if (args[0].equals("-f")) {
+        } else if ("-f".equals(args[0])) {
             if (args.length != 2) {
                 throw new IllegalArgumentException("Некорректный формат командной строки");
             }
@@ -61,23 +65,44 @@ public class App {
     /**
      * Возвращает системный промпт для использования в запросе.
      * Приоритеты:
-     * 1. Промпт из тега \s в файле промпта
-     * 2. Промпт по умолчанию (жестко закодированный)
+     * <ol>
+     *   <li>Промпт из тега \s в файле промпта</li>
+     *   <li>Промпт по умолчанию, загружаемый из ресурса {@code /default-system-prompt.md}</li>
+     * </ol>
      *
      * @param prompt загруженный промпт
      * @return системный промпт
+     * @throws UncheckedIOException  если ресурс не удалось прочитать
+     * @throws IllegalStateException если ресурс отсутствует в classpath
      */
     private static String getSystemPrompt(Prompt prompt) {
         String systemPrompt = prompt.getSystemPrompt();
         if (systemPrompt != null) {
-            log.debug("Систмный промпт: {}", systemPrompt);
+            log.debug("Системный промпт: {}", systemPrompt);
             return systemPrompt;
         }
-        log.debug("Системный промпт по умолчанию");
-        return """
-                Ты опытный разработчик на Java.
-                Ты пишешь надежный, понятный и эффективный код. Комментарии и JavaDoc на русском языке, очень лаконично.
-                Ты выводишь только код, комментарии и JavaDoc в markdown. Без дополнительных пояснений.""";
+        log.debug("Системный промпт по умолчанию из ресурса");
+        return getDefaultSystemPrompt();
+    }
+
+    /**
+     * Загрузить системный промпт по умолчанию из classpath-ресурса {@code /default-system-prompt.md}.
+     *
+     * @return содержимое промпта.
+     * @throws UncheckedIOException  если произошла ошибка ввода-вывода.
+     * @throws IllegalStateException если ресурс не найден.
+     */
+    private static synchronized String getDefaultSystemPrompt() {
+        try (var inputStream = App.class.getResourceAsStream("/default-system-prompt.md")) {
+            if (inputStream == null) {
+                throw new IllegalStateException("Ресурс /default-system-prompt.md не найден в classpath");
+            }
+            var prompt = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8).strip();
+            log.debug("Загружен системный промпт по умолчанию");
+            return prompt;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Ошибка чтения ресурса /default-system-prompt.md", e);
+        }
     }
 
     private static void processCompletions(
