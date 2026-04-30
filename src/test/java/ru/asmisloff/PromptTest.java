@@ -4,10 +4,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,9 +24,14 @@ class PromptTest {
 
     private Path promptFile;
 
+    private Props props;
+
     @BeforeEach
     void setUp() {
         promptFile = tempDir.resolve("test_prompt.txt");
+        props = Mockito.mock(Props.class);
+        Mockito.when(props.getSystemPrompts()).thenReturn(Collections.emptyMap());
+        Mockito.when(props.getModelAliases()).thenReturn(Collections.emptyMap());
     }
 
     @Test
@@ -33,7 +40,7 @@ class PromptTest {
         String content = "Line 1\nLine 2\nLine 3";
         Files.write(promptFile, content.getBytes());
 
-        Prompt builder = new Prompt(promptFile);
+        Prompt builder = new Prompt(promptFile, props);
         List<String> result = builder.getUserLines();
 
         assertEquals(List.of("Line 1", "Line 2", "Line 3"), result);
@@ -47,7 +54,7 @@ class PromptTest {
         String promptContent = "\\i " + externalFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile);
+        Prompt builder = new Prompt(promptFile, props);
         List<String> result = builder.getUserLines();
 
         assertEquals(1, result.size());
@@ -64,14 +71,14 @@ class PromptTest {
         String promptContent = "\\i " + javaFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt prompt = new Prompt(promptFile);
+        Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
         assertEquals("""
-                         ```Java
-                         public class Example { public static void main(String[] args) {} }
-                         ```""",
-                     String.join("\n", result)
+                        ```Java
+                        public class Example { public static void main(String[] args) {} }
+                        ```""",
+                String.join("\n", result)
         );
     }
 
@@ -80,7 +87,7 @@ class PromptTest {
     void handleEmptyPromptFile() throws IOException {
         Files.write(promptFile, new byte[0]);
 
-        Prompt builder = new Prompt(promptFile);
+        Prompt builder = new Prompt(promptFile, props);
         List<String> result = builder.getUserLines();
 
         assertNotNull(result);
@@ -93,7 +100,7 @@ class PromptTest {
         String promptContent = "Text \\unknownTag some/path More text";
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile);
+        Prompt builder = new Prompt(promptFile, props);
         List<String> result = builder.getUserLines();
 
         assertEquals(1, result.size());
@@ -109,7 +116,7 @@ class PromptTest {
         String promptContent = String.format("  \\i %s\n", externalFile);
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile);
+        Prompt builder = new Prompt(promptFile, props);
         List<String> result = builder.getUserLines();
 
         assertEquals(1, result.size());
@@ -122,6 +129,6 @@ class PromptTest {
         String promptContent = "\\i /non/existent/path.txt More text";
         Files.write(promptFile, promptContent.getBytes());
 
-        assertThrows(Exception.class, () -> new Prompt(promptFile));
+        assertThrows(Exception.class, () -> new Prompt(promptFile, props));
     }
 }
