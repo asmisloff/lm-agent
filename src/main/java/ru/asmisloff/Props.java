@@ -17,7 +17,7 @@ import java.util.Optional;
  * Параметры конфигурации.
  */
 @Log4j2
-public class Props { // todo: убрать статику
+public class Props {
 
     private static final String BASE_URL = "base-url";
     private static final String MODEL = "model";
@@ -31,45 +31,48 @@ public class Props { // todo: убрать статику
      * URL OpenAI-совместимого API.
      */
     @Getter
-    private static final String baseUrl;
+    private final String baseUrl;
 
     /**
      * Наименование модели.
      */
     @Getter
-    private static final String model;
+    private final String model;
 
     /**
      * Ключ API.
      */
     @Getter
-    private static final String apiKey;
+    private final String apiKey;
 
     /**
      * Имя файла с промптом.
      */
     @Getter
-    private static final String promptFileName;
+    private final String promptFileName;
 
     /**
      * Имя файла для записи ответа модели.
      */
     @Getter
-    private static final String answerFileName;
+    private final String answerFileName;
 
     /**
      * Псевдонимы моделей.
      */
     @Getter
-    private static final Map<String, String> modelAliases;
+    private final Map<String, String> modelAliases;
 
     /**
      * Системные промпты.
      */
     @Getter
-    private static final Map<String, String> systemPrompts;
+    private final Map<String, String> systemPrompts;
 
-    static {
+    /**
+     * Загружает и проверяет конфигурацию из lm-agent.yml.
+     */
+    public Props() {
         var props = loadConfig();
         baseUrl = getStringOrElse(props, BASE_URL, null);
         model = getStringOrElse(props, MODEL, null);
@@ -82,7 +85,7 @@ public class Props { // todo: убрать статику
     }
 
     @Nullable
-    private static String getStringOrElse(Map<String, Object> props, String key, String defaultValue) {
+    private String getStringOrElse(Map<String, Object> props, String key, String defaultValue) {
         return Optional.ofNullable(props.get(key))
                 .map(value -> {
                     if (value instanceof String strValue) {
@@ -93,7 +96,7 @@ public class Props { // todo: убрать статику
                 .orElse(defaultValue);
     }
 
-    private static Map<String, Object> loadConfig() {
+    private Map<String, Object> loadConfig() {
         try (var ins = Files.newInputStream(Path.of("lm-agent.yml"))) {
             return new Yaml().load(ins);
         } catch (IOException e) {
@@ -101,7 +104,7 @@ public class Props { // todo: убрать статику
         }
     }
 
-    private static Map<String, String> getDict(Map<String, Object> props, String configKey) {
+    private Map<String, String> getDict(Map<String, Object> props, String configKey) {
         Object rawMap = props.get(configKey);
         if (rawMap instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
@@ -116,7 +119,7 @@ public class Props { // todo: убрать статику
         return Collections.emptyMap();
     }
 
-    private static void validate() {
+    private void validate() {
         final String NO_PARAM = "Не задан параметр ";
         if (baseUrl == null) {
             throw new IllegalStateException(NO_PARAM + BASE_URL);

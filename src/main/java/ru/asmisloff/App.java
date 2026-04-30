@@ -27,11 +27,12 @@ public class App {
     }
 
     private static void execPrompt() {
-        var prompt = new Prompt(Path.of(Props.getPromptFileName()));
+        Props props = new Props();
+        var prompt = new Prompt(Path.of(props.getPromptFileName()), props);
         log.debug(String.join("\n", prompt.getUserLines()));
 
         // Модель из тега \m имеет приоритет над настройками
-        var model = prompt.getModel() != null ? prompt.getModel() : Props.getModel();
+        var model = prompt.getModel() != null ? prompt.getModel() : props.getModel();
         log.info("Используемая модель: {}", model);
 
         var paramsBuilder = ChatCompletionCreateParams.builder()
@@ -41,16 +42,17 @@ public class App {
         prompt.getUserLines().forEach(paramsBuilder::addUserMessage);
 
         var client = new OpenAIOkHttpClient.Builder()
-                .baseUrl(Props.getBaseUrl())
-                .apiKey(Props.getApiKey())
+                .baseUrl(props.getBaseUrl())
+                .apiKey(props.getApiKey())
                 .build();
         log.info("Отправка запроса к {}", model);
         try (var completion = client.chat().completions().createStreaming(paramsBuilder.build())) {
-            try (var writer = Files.newBufferedWriter(Path.of(Props.getAnswerFileName()))) {
-                processCompletions(completion, writer);
+            String answerFile = props.getAnswerFileName();
+            try (var writer = Files.newBufferedWriter(Path.of(answerFile))) {
+                processCompletions(completion, writer, answerFile);
             } catch (IOException ex) {
-                log.error("Ошибка доступа к файлу {}", Props.getAnswerFileName());
-                processCompletions(completion, null);
+                log.error("Ошибка доступа к файлу {}", answerFile);
+                processCompletions(completion, null, answerFile);
             }
         }
         log.info("Завершено");
@@ -80,7 +82,8 @@ public class App {
 
     private static void processCompletions(
             @NotNull StreamResponse<ChatCompletionChunk> completion,
-            @Nullable Writer writer
+            @Nullable Writer writer,
+            String answerFileName
     ) {
         completion.stream()
                 .map(chunk -> chunk.choices().get(0).delta().content().orElse(""))
@@ -90,7 +93,7 @@ public class App {
                         try {
                             writer.write(message);
                         } catch (IOException e) {
-                            log.error("Ошибка записи в файл {}", Props.getAnswerFileName());
+                            log.error("Ошибка записи в файл {}", answerFileName);
                         }
                     }
                 });

@@ -54,15 +54,19 @@ public class Prompt {
             new ExtToLang(".kt", "```Kotlin")
     );
 
+    private final Props props;
+
     private int idx = 0;
 
     /**
      * Создает промпт, загружая шаблон из файла и применяя замены.
      *
      * @param promptFilePath путь к файлу с шаблоном промпта.
+     * @param props          конфигурация приложения.
      * @throws IllegalStateException если файл не может быть прочитан или путь некорректен.
      */
-    public Prompt(@NotNull Path promptFilePath) {
+    public Prompt(@NotNull Path promptFilePath, @NotNull Props props) {
+        this.props = props;
         var template = FileUtil.readLines(promptFilePath);
         for (var line : template) {
             var replace = getReplacementFunction(line);
@@ -112,7 +116,7 @@ public class Prompt {
      */
     private void setModel(String line) {
         var modelName = extractTagArgument(line);
-        model = Props.getModelAliases().getOrDefault(modelName, modelName);
+        model = props.getModelAliases().getOrDefault(modelName, modelName);
     }
 
     /**
@@ -124,7 +128,7 @@ public class Prompt {
      */
     private void setSystemPrompt(String line) {
         var key = extractTagArgument(line);
-        var systemPrompts = Props.getSystemPrompts();
+        var systemPrompts = props.getSystemPrompts();
 
         if (!systemPrompts.containsKey(key)) {
             throw new IllegalStateException("Системный промпт с ключом '%s' не найден в конфигурации".formatted(key));
