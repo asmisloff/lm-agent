@@ -16,10 +16,10 @@ import static java.lang.Character.isWhitespace;
 public class FileUtil {
 
     /**
-     * Читает содержимое файла в одну строку.
+     * Читает содержимое файла в список строк.
      *
      * @param path Пусть к файлу.
-     * @return Строка с содержимым файла.
+     * @return Список строк из файла.
      * @throws IllegalStateException в случае ошибки при работе с файлом.
      */
     public static List<String> readLines(Path path) {
@@ -30,6 +30,13 @@ public class FileUtil {
         }
     }
 
+    /**
+     * Читает содержимое файла в строку.
+     *
+     * @param path путь к файлу
+     * @return содержимое файла в виде строки
+     * @throws IllegalStateException при ошибке ввода-вывода
+     */
     public static String readString(Path path) {
         try {
             return Files.readString(path);
@@ -71,6 +78,7 @@ public class FileUtil {
      *
      * @param root    Путь к корневой директории для поиска файлов.
      * @param pattern Подстрока, по вхождению которой отбираются файлы.
+     * @param out     Объект {@link Appendable} для вывода найденных путей.
      */
     public static void find(Path root, String pattern, Appendable out) {
         try (var files = Files.walk(root)) {
@@ -92,6 +100,13 @@ public class FileUtil {
         }
     }
 
+    /**
+     * Проверяет, содержит ли строка указанную подстроку без учета регистра.
+     *
+     * @param str    строка, в которой производится поиск
+     * @param substr искомая подстрока
+     * @return {@code true}, если подстрока найдена; иначе {@code false}
+     */
     private static boolean containsIgnoreCase(@NotNull String str, @NotNull String substr) {
         for (int i = 0; i <= str.length() - substr.length(); i++) {
             if (str.regionMatches(true, i, substr, 0, substr.length())) {
@@ -101,6 +116,12 @@ public class FileUtil {
         return false;
     }
 
+    /**
+     * Определяет, является ли строка объявлением пакета, импорта или состоит только из пробелов.
+     *
+     * @param line исходная строка
+     * @return {@code true}, если строка пустая, содержит только пробелы, начинается с "import" или "package"; иначе {@code false}
+     */
     private static boolean isPackageImportOrBlankLine(String line) {
         int offset = 0;
         var len = line.length();
