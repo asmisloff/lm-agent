@@ -19,6 +19,16 @@ import java.nio.file.Path;
 @Log4j2
 public class App {
 
+    /**
+     * Точка входа в приложение.
+     * <ul>
+     *   <li>Без аргументов — запускает интерактивный режим с промптом.</li>
+     *   <li>{@code -f <паттерн>} — ищет файлы по паттерну в текущем каталоге.</li>
+     * </ul>
+     *
+     * @param args аргументы командной строки
+     * @throws IllegalArgumentException если передан флаг {@code -f} без имени паттерна
+     */
     public static void main(String[] args) {
         if (args.length == 0) {
             execPrompt();
@@ -30,6 +40,9 @@ public class App {
         }
     }
 
+    /**
+     * Читает промпт из файла, отправляет запрос к LLM и сохраняет ответ.
+     */
     private static void execPrompt() {
         Props props = new Props();
         var prompt = new Prompt(Path.of(props.getPromptFileName()), props);
@@ -105,6 +118,13 @@ public class App {
         }
     }
 
+    /**
+     * Обрабатывает потоковый ответ от LLM: выводит токены в stdout и пишет в файл.
+     *
+     * @param completion    потоковый ответ.
+     * @param writer        @{link Writer} для записи в файл ответа. Если {@code null}, запись в файл пропускается.
+     * @param answerFileName имя файла ответа (используется только в сообщениях об ошибках).
+     */
     private static void processCompletions(
             @NotNull StreamResponse<ChatCompletionChunk> completion,
             @Nullable Writer writer,

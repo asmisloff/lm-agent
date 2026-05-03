@@ -158,15 +158,23 @@ public class Prompt {
         return line.substring(idx, end);
     }
 
+    /**
+     * Добавляет содержимое файла в userLines. Для файлов с кодом добавляет комментарий с именем файла
+     * и обрамляет содержимое в markdown-блок.
+     *
+     * @param line строка с тегом \i и путём к файлу
+     */
     private void addFileContent(String line) {
         var path = Path.of(extractTagArgument(line));
-        var mdTag = getMdTag(path.getFileName().toString());
+        var fileName = path.getFileName().toString();
+        var mdTag = getMdTag(fileName);
         if (mdTag == null) {
             userLines.add(FileUtil.readString(path));
             return;
         }
 
         userLines.add(mdTag);
+        userLines.add("// " + fileName);
         userLines.add(FileUtil.readCode(path));
         userLines.add("```");
     }
