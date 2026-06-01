@@ -76,6 +76,7 @@ class PromptTest {
 
         assertEquals("""
                         ```Java
+                        // Example.java
                         public class Example { public static void main(String[] args) {} }
                         ```""",
                 String.join("\n", result)
