@@ -9,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static java.lang.Character.isWhitespace;
-
 @Log4j2
 @UtilityClass
 public class FileUtil {
@@ -52,21 +50,8 @@ public class FileUtil {
      * @return Код без объявления пакета и импортов одной строкой.
      */
     public static String readCode(Path path) {
-        try (var reader = Files.newBufferedReader(path)) {
-            String line = reader.readLine();
-            while (line != null && isPackageImportOrBlankLine(line)) {
-                line = reader.readLine();
-            }
-            var sb = new StringBuilder();
-            while (line != null) {
-                sb.append(line).append('\n');
-                line = reader.readLine();
-            }
-            var end = sb.length() - 1;
-            while (end >= 0 && isWhitespace(sb.charAt(end))) {
-                sb.setLength(end--);
-            }
-            return sb.toString();
+        try {
+            return Files.readString(path).stripTrailing();
         } catch (IOException ex) {
             log.error("Ошибка чтения файла {}", path, ex);
             throw new IllegalStateException(String.format("Ошибка чтения из файла %s", path), ex);
@@ -116,27 +101,4 @@ public class FileUtil {
         return false;
     }
 
-    /**
-     * Определяет, является ли строка объявлением пакета, импорта или состоит только из пробелов.
-     *
-     * @param line исходная строка
-     * @return {@code true}, если строка пустая, содержит только пробелы, начинается с "import" или "package"; иначе {@code false}
-     */
-    private static boolean isPackageImportOrBlankLine(String line) {
-        int offset = 0;
-        var len = line.length();
-        while (offset < len && isWhitespace(line.charAt(offset))) {
-            ++offset;
-        }
-        if (offset == len) {
-            return true;
-        }
-        String[] prefixes = {"import", "package"};
-        for (var prefix : prefixes) {
-            if (line.startsWith(prefix, offset)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
