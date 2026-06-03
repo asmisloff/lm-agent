@@ -121,8 +121,8 @@ public class App {
     /**
      * Обрабатывает потоковый ответ от LLM: выводит токены в stdout и пишет в файл.
      *
-     * @param completion    потоковый ответ.
-     * @param writer        @{link Writer} для записи в файл ответа. Если {@code null}, запись в файл пропускается.
+     * @param completion     потоковый ответ.
+     * @param writer         @{link Writer} для записи в файл ответа. Если {@code null}, запись в файл пропускается.
      * @param answerFileName имя файла ответа (используется только в сообщениях об ошибках).
      */
     private static void processCompletions(
@@ -131,12 +131,16 @@ public class App {
             String answerFileName
     ) {
         completion.stream()
-                .map(chunk -> chunk.choices().get(0).delta().content().orElse(""))
-                .forEach(message -> {
-                    System.out.print(message);
+                .map(chunk -> chunk.choices().isEmpty()
+                        ? ""
+                        : chunk.choices().get(0).delta().content().orElse("")
+                )
+                .filter(choice -> !choice.isEmpty())
+                .forEach(choice -> {
+                    System.out.print(choice);
                     if (writer != null) {
                         try {
-                            writer.write(message);
+                            writer.write(choice);
                         } catch (IOException e) {
                             log.error("Ошибка записи в файл {}", answerFileName);
                         }
