@@ -8,7 +8,7 @@ prompt-filename: prompt.md
 answer-filename: ans.md
 
 model-aliases:
-  calude: anthropic/claude-sonnet-4.6
+  claude: anthropic/claude-sonnet-4.6
   deepseek: deepseek/deepseek-v4-pro
   qwen: qwen/qwen3-coder-plus
 

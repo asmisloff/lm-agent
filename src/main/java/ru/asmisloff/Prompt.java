@@ -51,7 +51,9 @@ public class Prompt {
      */
     private static final List<ExtToLang> codeFileExtToMdTag = List.of(
             new ExtToLang(".java", "```Java"),
-            new ExtToLang(".kt", "```Kotlin")
+            new ExtToLang(".kt", "```Kotlin"),
+            new ExtToLang(".sql", "```sql"),
+            new ExtToLang(".xml", "```xml")
     );
 
     private final Props props;
@@ -170,13 +172,12 @@ public class Prompt {
         var mdTag = getMdTag(fileName);
         if (mdTag == null) {
             userLines.add(FileUtil.readString(path));
-            return;
+        } else {
+            userLines.add(">>> FILE: " + fileName);
+            userLines.add(mdTag);
+            userLines.add(FileUtil.readCode(path));
+            userLines.add("```");
         }
-
-        userLines.add(mdTag);
-        userLines.add("// " + fileName);
-        userLines.add(FileUtil.readCode(path));
-        userLines.add("```");
     }
 
     /**
@@ -194,5 +195,6 @@ public class Prompt {
         return null;
     }
 
-    private record ExtToLang(String ext, String lang) {}
+    private record ExtToLang(String ext, String lang) {
+    }
 }

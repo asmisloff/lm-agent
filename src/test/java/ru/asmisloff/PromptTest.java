@@ -75,9 +75,54 @@ class PromptTest {
         List<String> result = prompt.getUserLines();
 
         assertEquals("""
+                        >>> FILE: Example.java
                         ```Java
-                        // Example.java
                         public class Example { public static void main(String[] args) {} }
+                        ```""",
+                String.join("\n", result)
+        );
+    }
+
+    @Test
+    @DisplayName("Обработка тега \\i с SQL-файлом: обрамление в markdown-блок")
+    void handleSqlFileWithTag() throws IOException {
+        Path sqlFile = tempDir.resolve("query.sql");
+        String sqlContent = "SELECT * FROM users WHERE id = 1;";
+        Files.write(sqlFile, sqlContent.getBytes());
+
+        String promptContent = "\\i " + sqlFile;
+        Files.write(promptFile, promptContent.getBytes());
+
+        Prompt prompt = new Prompt(promptFile, props);
+        List<String> result = prompt.getUserLines();
+
+        assertEquals("""
+                        >>> FILE: query.sql
+                        ```sql
+                        SELECT * FROM users WHERE id = 1;
+                        ```""",
+                String.join("\n", result)
+        );
+    }
+
+    @Test
+    @DisplayName("Обработка тега \\i с XML-файлом: обрамление в markdown-блок")
+    void handleXmlFileWithTag() throws IOException {
+        Path xmlFile = tempDir.resolve("config.xml");
+        String xmlContent = "<?xml version=\"1.0\"?>\n<root><element>value</element></root>";
+        Files.write(xmlFile, xmlContent.getBytes());
+
+        String promptContent = "\\i " + xmlFile;
+        Files.write(promptFile, promptContent.getBytes());
+
+        Prompt prompt = new Prompt(promptFile, props);
+        List<String> result = prompt.getUserLines();
+
+        assertEquals("""
+                        >>> FILE: config.xml
+                        ```xml
+                        <?xml version="1.0"?>
+                        <root><element>value</element></root>
                         ```""",
                 String.join("\n", result)
         );
