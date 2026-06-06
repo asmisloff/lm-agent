@@ -7,11 +7,21 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.*;
 
 @Log4j2
 @UtilityClass
 public class FileUtil {
+
+    /**
+     * Открывающий маркер блока кода в markdown.
+     */
+    private static final String FILE_PATH_PREFIX = ">>> FILE: ";
+
+    /**
+     * Закрывающий маркер блока кода в markdown.
+     */
+    private static final String CODE_MARKER = "```";
 
     /**
      * Читает содержимое файла в список строк.
@@ -68,21 +78,84 @@ public class FileUtil {
     public static void find(Path root, String pattern, Appendable out) {
         try (var files = Files.walk(root)) {
             files
-                .filter(Files::isRegularFile)
-                .map(Path::toString)
-                .filter(path -> containsIgnoreCase(path, pattern))
-                .forEach(path -> {
-                    try {
-                        out.append(path);
-                        out.append('\n');
-                    } catch (IOException ex) {
-                        log.error("Ошибка при выводе имени файла", ex);
-                        System.out.println(path);
-                    }
-                });
+                    .filter(Files::isRegularFile)
+                    .map(Path::toString)
+                    .filter(path -> containsIgnoreCase(path, pattern))
+                    .forEach(path -> {
+                        try {
+                            out.append(path);
+                            out.append('\n');
+                        } catch (IOException ex) {
+                            log.error("Ошибка при выводе имени файла", ex);
+                            System.out.println(path);
+                        }
+                    });
         } catch (IOException e) {
             log.error("Не удалось получить список файлов");
         }
+    }
+
+    /**
+     * Извлечь программный код из файла Markdown.
+     * <p>Код должен иметь заголовок с путем к файлу. Также он должен быть заключен в тройные обратные кавычки.</p>
+     *
+     * @param path путь к файлу Markdown.
+     * @return Таблица, где ключ - имя файла, значение - код.
+     */
+    public static @NotNull Map<String, String> extractCode(Path path) {
+        HashMap<String, String> res = null;
+        StringBuilder buf = null;
+        try (var reader = Files.newBufferedReader(path)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith(FILE_PATH_PREFIX)) {
+                    String codeFilePath = line.substring(FILE_PATH_PREFIX.length()).trim();
+                    res = Objects.requireNonNullElse(res, new HashMap<>());
+                    buf = readCode(reader, codeFilePath, res, buf);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return Objects.requireNonNullElse(res, Collections.emptyMap());
+    }
+
+    /**
+     * Сохранить строку с кодом в файл по указанному пути.
+     * <p>Если родительские директории отсутствуют, они будут созданы.</p>
+     *
+     * @param filePath путь к файлу, включая имя.
+     * @param code     строка с исходным кодом для сохранения.
+     * @throws IllegalStateException если произошла ошибка ввода-вывода.
+     */
+    public static void saveCode(String filePath, String code) {
+        try {
+            Path path = Path.of(filePath);
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, code);
+        } catch (IOException ex) {
+            log.error("Ошибка сохранения файла {}", filePath, ex);
+            throw new IllegalStateException(String.format("Не удалось сохранить файл %s", filePath), ex);
+        }
+    }
+
+    private static StringBuilder readCode(
+            BufferedReader reader,
+            String codeFilePath,
+            Map<String, String> dest,
+            StringBuilder buf
+    ) throws IOException {
+        String line = reader.readLine();
+        if (line != null && line.startsWith(CODE_MARKER)) {
+            buf = Objects.requireNonNullElse(buf, new StringBuilder());
+            while ((line = reader.readLine()) != null && !line.startsWith(CODE_MARKER)) {
+                buf.append(line).append('\n');
+            }
+            buf.setLength(buf.length() - 1);
+            dest.put(codeFilePath, buf.toString());
+            buf.setLength(0);
+        }
+        return buf;
     }
 
     /**

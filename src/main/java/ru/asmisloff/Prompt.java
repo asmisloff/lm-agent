@@ -168,7 +168,7 @@ public class Prompt {
      */
     private void addFileContent(String line) {
         var path = Path.of(extractTagArgument(line));
-        var fileName = path.getFileName().toString();
+        var fileName = path.toAbsolutePath().toString();
         var mdTag = getMdTag(fileName);
         if (mdTag == null) {
             userLines.add(FileUtil.readString(path));

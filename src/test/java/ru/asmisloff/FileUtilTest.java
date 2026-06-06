@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -99,7 +100,7 @@ class FileUtilTest {
     }
 
     /**
-     * Корректно обрабатывает пустой паттерн. todo: вообще-то, не должно так бытью Исправить.
+     * Корректно обрабатывает пустой паттерн. todo: вообще-то, не должно так быть. Исправить.
      */
     @Test
     void find_emptyPattern_returnsAllFiles() throws IOException {
@@ -113,8 +114,8 @@ class FileUtilTest {
         out.setLength(out.length() - 1);
 
         assertEquals(
-            String.join("\n", file1.toString(), file2.toString()),
-            out.toString()
+                String.join("\n", file1.toString(), file2.toString()),
+                out.toString()
         );
     }
 
@@ -147,13 +148,13 @@ class FileUtilTest {
     @Test
     void readCode_readsJavaFile() throws IOException {
         String content = """
-            package com.example;
-              import java.util.List;
-            \s
-            public class MyClass {
-                public void method() {}
-            }
-            """;
+                package com.example;
+                  import java.util.List;
+                \s
+                public class MyClass {
+                    public void method() {}
+                }
+                """;
         Path file = createJavaFile(content);
         String result = FileUtil.readCode(file);
 
@@ -167,5 +168,166 @@ class FileUtilTest {
         Path file = tempDir.resolve("Test.java");
         Files.writeString(file, content);
         return file;
+    }
+
+    // extractCode
+
+    /**
+     * Тест extractCode с единственным блоком кода.
+     */
+    @Test
+    void extractCode_singleBlock_returnsMapWithCode() throws IOException {
+        String content = """
+                >>> FILE: Test.java
+                ```
+                public class Test {
+                    public void method() {}
+                }
+                ```
+                """;
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertEquals(1, result.size());
+        assertEquals("""
+                        public class Test {
+                            public void method() {}
+                        }""",
+                result.get("Test.java")
+        );
+    }
+
+    /**
+     * Тест extractCode с несколькими блоками — демонстрирует накопление в буфере.
+     */
+    @Test
+    void extractCode_multipleBlocks_accumulatesInBuffer() throws IOException {
+        String content = """
+                >>> FILE: A.java
+                ```
+                codeA
+                ```
+                >>> FILE: B.java
+                ```
+                codeB
+                ```
+                """;
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertEquals(2, result.size());
+        // из-за переиспользования StringBuilder код B будет включать A
+        assertEquals("codeA", result.get("A.java"));
+        assertEquals("codeB", result.get("B.java"));
+    }
+
+    /**
+     * Файл без маркеров возвращает пустой результат.
+     */
+    @Test
+    void extractCode_noMarkers_returnsEmptyMap() throws IOException {
+        String content = "Some text\nwithout markers";
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertTrue(result.isEmpty());
+    }
+
+    /**
+     * Заголовок без открывающих маркеров кода — игнорируется.
+     */
+    @Test
+    void extractCode_headerWithoutCodeBlock_ignored() throws IOException {
+        String content = """
+                >>> FILE: X.java
+                No code block
+                """;
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertTrue(result.isEmpty());
+    }
+
+    /**
+     * Открывающий маркер без закрывающего — весь остаток файла считается кодом.
+     */
+    @Test
+    void extractCode_noClosingBackticks_takesRestOfFile() throws IOException {
+        String content = """
+                >>> FILE: Code.java
+                ```
+                some code
+                next line without closing
+                """;
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertEquals(1, result.size());
+        assertEquals("some code\nnext line without closing", result.get("Code.java"));
+    }
+
+    /**
+     * Заголовок в конце файла (сразу конец данных) — игнорируется.
+     */
+    @Test
+    void extractCode_headerAtEndOfFile_ignored() throws IOException {
+        String content = ">>> FILE: Empty.java\n";
+        Path file = createMarkdownFile(content);
+        Map<String, String> result = FileUtil.extractCode(file);
+
+        assertTrue(result.isEmpty());
+    }
+
+    /**
+     * Вспомогательный метод для создания markdown-файла с заданным содержимым.
+     */
+    private Path createMarkdownFile(String content) throws IOException {
+        Path file = tempDir.resolve("test.md");
+        Files.writeString(file, content);
+        return file;
+    }
+
+    // saveCode
+
+    /**
+     * Сохранение кода в файл: файл создается, содержимое совпадает.
+     */
+    @Test
+    void saveCode_createsFileWithContent() throws IOException {
+        Path file = tempDir.resolve("output.txt");
+        String code = "System.out.println(\"Hello\");";
+
+        FileUtil.saveCode(file.toString(), code);
+
+        assertTrue(Files.exists(file));
+        assertEquals(code, Files.readString(file));
+    }
+
+    /**
+     * Сохранение в несуществующую директорию: родительские директории создаются автоматически.
+     */
+    @Test
+    void saveCode_createsParentDirectories() throws IOException {
+        Path file = tempDir.resolve("deep/nested/dir/code.txt");
+        String code = "print(42)";
+
+        FileUtil.saveCode(file.toString(), code);
+
+        assertTrue(Files.exists(file));
+        assertEquals(code, Files.readString(file));
+    }
+
+    /**
+     * Перезапись существующего файла: старое содержимое заменяется новым.
+     */
+    @Test
+    void saveCode_overwritesExistingFile() throws IOException {
+        Path file = tempDir.resolve("existing.txt");
+        Files.writeString(file, "old content");
+        String newCode = "new content";
+
+        FileUtil.saveCode(file.toString(), newCode);
+
+        assertEquals(newCode, Files.readString(file));
     }
 }
