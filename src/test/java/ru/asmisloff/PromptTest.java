@@ -74,11 +74,13 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals("""
-                        >>> FILE: Example.java
+        assertEquals(
+                String.format("""
+                        >>> FILE: %s
                         ```Java
                         public class Example { public static void main(String[] args) {} }
-                        ```""",
+                        ```""", javaFile.toAbsolutePath()
+                ),
                 String.join("\n", result)
         );
     }
@@ -96,11 +98,14 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals("""
-                        >>> FILE: query.sql
-                        ```sql
-                        SELECT * FROM users WHERE id = 1;
-                        ```""",
+        assertEquals(
+                String.format("""
+                                >>> FILE: %s
+                                ```sql
+                                SELECT * FROM users WHERE id = 1;
+                                ```""",
+                        sqlFile.toAbsolutePath()
+                ),
                 String.join("\n", result)
         );
     }
@@ -118,12 +123,14 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals("""
-                        >>> FILE: config.xml
+        assertEquals(
+                String.format("""
+                        >>> FILE: %s
                         ```xml
                         <?xml version="1.0"?>
                         <root><element>value</element></root>
-                        ```""",
+                        ```""", xmlFile.toAbsolutePath()
+                ),
                 String.join("\n", result)
         );
     }
