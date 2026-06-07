@@ -76,10 +76,11 @@ class PromptTest {
 
         assertEquals(
                 String.format("""
-                        >>> FILE: %s
-                        ```Java
-                        public class Example { public static void main(String[] args) {} }
-                        ```""", javaFile.toAbsolutePath()
+                                %s%s
+                                ```Java
+                                public class Example { public static void main(String[] args) {} }
+                                ```""",
+                        Prompt.FILE_PATH_HEADER, javaFile.toAbsolutePath()
                 ),
                 String.join("\n", result)
         );
@@ -100,11 +101,11 @@ class PromptTest {
 
         assertEquals(
                 String.format("""
-                                >>> FILE: %s
+                                %s%s
                                 ```sql
                                 SELECT * FROM users WHERE id = 1;
                                 ```""",
-                        sqlFile.toAbsolutePath()
+                        Prompt.FILE_PATH_HEADER, sqlFile.toAbsolutePath()
                 ),
                 String.join("\n", result)
         );
@@ -125,11 +126,12 @@ class PromptTest {
 
         assertEquals(
                 String.format("""
-                        >>> FILE: %s
-                        ```xml
-                        <?xml version="1.0"?>
-                        <root><element>value</element></root>
-                        ```""", xmlFile.toAbsolutePath()
+                                %s%s
+                                ```xml
+                                <?xml version="1.0"?>
+                                <root><element>value</element></root>
+                                ```""",
+                        Prompt.FILE_PATH_HEADER, xmlFile.toAbsolutePath()
                 ),
                 String.join("\n", result)
         );

@@ -20,7 +20,8 @@ public class CommandRegistry {
     public CommandRegistry(Props props) {
         reg = Map.of(
                 "send", new SendPromptCommand(props),
-                "find", new FindCommand()
+                "find", new FindCommand(),
+                "preview", new PreviewCommand(props)
         );
     }
 

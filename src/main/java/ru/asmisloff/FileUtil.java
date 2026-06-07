@@ -14,11 +14,6 @@ import java.util.*;
 public class FileUtil {
 
     /**
-     * Открывающий маркер блока кода в markdown.
-     */
-    private static final String FILE_PATH_PREFIX = ">>> FILE: ";
-
-    /**
      * Закрывающий маркер блока кода в markdown.
      */
     private static final String CODE_MARKER = "```";
@@ -108,8 +103,8 @@ public class FileUtil {
         try (var reader = Files.newBufferedReader(path)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith(FILE_PATH_PREFIX)) {
-                    String codeFilePath = line.substring(FILE_PATH_PREFIX.length()).trim();
+                if (line.startsWith(Prompt.FILE_PATH_HEADER)) {
+                    String codeFilePath = line.substring(Prompt.FILE_PATH_HEADER.length()).trim();
                     res = Objects.requireNonNullElse(res, new HashMap<>());
                     buf = readCode(reader, codeFilePath, res, buf);
                 }

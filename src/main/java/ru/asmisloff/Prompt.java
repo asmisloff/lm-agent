@@ -19,6 +19,8 @@ import static java.lang.Character.isWhitespace;
 @Log4j2
 public class Prompt {
 
+    public static String FILE_PATH_HEADER = "##### FILE: ";
+
     /**
      * Модель, выбранная через тег \m. Если не задана — null.
      */
@@ -173,7 +175,7 @@ public class Prompt {
         if (mdTag == null) {
             userLines.add(FileUtil.readString(path));
         } else {
-            userLines.add(">>> FILE: " + fileName);
+            userLines.add(FILE_PATH_HEADER + fileName);
             userLines.add(mdTag);
             userLines.add(FileUtil.readCode(path));
             userLines.add("```");

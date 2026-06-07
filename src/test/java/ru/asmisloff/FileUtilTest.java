@@ -177,14 +177,16 @@ class FileUtilTest {
      */
     @Test
     void extractCode_singleBlock_returnsMapWithCode() throws IOException {
-        String content = """
-                >>> FILE: Test.java
-                ```
-                public class Test {
-                    public void method() {}
-                }
-                ```
-                """;
+        String content = String.format("""
+                        %sTest.java
+                        ```
+                        public class Test {
+                            public void method() {}
+                        }
+                        ```
+                        """,
+                Prompt.FILE_PATH_HEADER
+        );
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
@@ -202,21 +204,22 @@ class FileUtilTest {
      */
     @Test
     void extractCode_multipleBlocks_accumulatesInBuffer() throws IOException {
-        String content = """
-                >>> FILE: A.java
-                ```
-                codeA
-                ```
-                >>> FILE: B.java
-                ```
-                codeB
-                ```
-                """;
+        String content = String.format("""
+                        %sA.java
+                        ```
+                        codeA
+                        ```
+                        %sB.java
+                        ```
+                        codeB
+                        ```
+                        """,
+                Prompt.FILE_PATH_HEADER, Prompt.FILE_PATH_HEADER
+        );
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
         assertEquals(2, result.size());
-        // из-за переиспользования StringBuilder код B будет включать A
         assertEquals("codeA", result.get("A.java"));
         assertEquals("codeB", result.get("B.java"));
     }
@@ -238,10 +241,12 @@ class FileUtilTest {
      */
     @Test
     void extractCode_headerWithoutCodeBlock_ignored() throws IOException {
-        String content = """
-                >>> FILE: X.java
-                No code block
-                """;
+        String content = String.format("""
+                        %sX.java
+                        No code block
+                        """,
+                Prompt.FILE_PATH_HEADER
+        );
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
@@ -253,12 +258,14 @@ class FileUtilTest {
      */
     @Test
     void extractCode_noClosingBackticks_takesRestOfFile() throws IOException {
-        String content = """
-                >>> FILE: Code.java
-                ```
-                some code
-                next line without closing
-                """;
+        String content = String.format("""
+                        %sCode.java
+                        ```
+                        some code
+                        next line without closing
+                        """,
+                Prompt.FILE_PATH_HEADER
+        );
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
@@ -271,7 +278,7 @@ class FileUtilTest {
      */
     @Test
     void extractCode_headerAtEndOfFile_ignored() throws IOException {
-        String content = ">>> FILE: Empty.java\n";
+        String content = String.format("%sEmpty.java\n", Prompt.FILE_PATH_HEADER);
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
