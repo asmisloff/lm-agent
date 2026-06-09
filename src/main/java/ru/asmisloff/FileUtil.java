@@ -40,26 +40,11 @@ public class FileUtil {
      * @return содержимое файла в виде строки
      * @throws IllegalStateException при ошибке ввода-вывода
      */
-    public static String readString(Path path) {
+    public static String getFileContent(Path path) {
         try {
-            return Files.readString(path);
+            return Files.readString(path).strip();
         } catch (IOException ex) {
             throw new IllegalStateException(String.format("Не удалось прочитать файл %s", path.toAbsolutePath()), ex);
-        }
-    }
-
-    /**
-     * Читает код из файла *.java или *.kt, пропуская объявление пакета и импорты.
-     *
-     * @param path путь к файлу с кодом.
-     * @return Код без объявления пакета и импортов одной строкой.
-     */
-    public static String readCode(Path path) {
-        try {
-            return Files.readString(path).stripTrailing();
-        } catch (IOException ex) {
-            log.error("Ошибка чтения файла {}", path, ex);
-            throw new IllegalStateException(String.format("Ошибка чтения из файла %s", path), ex);
         }
     }
 
@@ -92,27 +77,65 @@ public class FileUtil {
 
     /**
      * Извлечь программный код из файла Markdown.
-     * <p>Код должен иметь заголовок с путем к файлу. Также он должен быть заключен в тройные обратные кавычки.</p>
+     * <p>Код должен быть заключен в тройные кавычки с указанием метки языка программирования, по правилам Markdown.
+     * <p>Первая строка кода должна содержать путь к файлу. Если путь не указан, код будет пропущен.
      *
      * @param path путь к файлу Markdown.
-     * @return Таблица, где ключ - имя файла, значение - код.
+     * @return Таблица, в которой ключ - имя файла, значение - код.
      */
     public static @NotNull Map<String, String> extractCode(Path path) {
-        HashMap<String, String> res = null;
-        StringBuilder buf = null;
+        HashMap<String, String> res = new HashMap<>();
+        StringBuilder buf = new StringBuilder();
         try (var reader = Files.newBufferedReader(path)) {
             String line;
+            String filePath;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith(Prompt.FILE_PATH_HEADER)) {
-                    String codeFilePath = line.substring(Prompt.FILE_PATH_HEADER.length()).trim();
-                    res = Objects.requireNonNullElse(res, new HashMap<>());
-                    buf = readCode(reader, codeFilePath, res, buf);
+                if (!line.startsWith(CODE_MARKER)) {
+                    continue;
                 }
+                filePath = readFilePath(line, reader);
+                if (filePath == null) {
+                    continue;
+                }
+                readUntilCodeMarker(reader, buf);
+                res.put(filePath, buf.toString());
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return Objects.requireNonNullElse(res, Collections.emptyMap());
+        return res;
+    }
+
+    private static void readUntilCodeMarker(BufferedReader reader, StringBuilder buf) throws IOException {
+        String line;
+        buf.setLength(0);
+        while ((line = reader.readLine()) != null && !line.startsWith(CODE_MARKER)) {
+            buf.append(line);
+        }
+        while (!buf.isEmpty() && Character.isWhitespace(buf.charAt(buf.length() - 1))) {
+            buf.setLength(buf.length() - 1);
+        }
+    }
+
+    private static String readFilePath(String langMark, BufferedReader reader) throws IOException {
+        var fileTypeAttributes = Prompt.getFileTypeAttributes().stream()
+                .filter(att -> langMark.startsWith(att.langMark()))
+                .findFirst()
+                .orElse(null);
+        if (fileTypeAttributes != null) {
+            String line = reader.readLine();
+            if (line != null && line.startsWith(fileTypeAttributes.commentPrefix())) {
+                var path = line.substring(
+                        fileTypeAttributes.commentPrefix().length(),
+                        line.lastIndexOf(fileTypeAttributes.commentSuffix())
+                );
+                if (path.isBlank()) {
+                    return null;
+                }
+                return path.strip();
+            }
+        }
+        return null;
     }
 
     /**
@@ -132,25 +155,6 @@ public class FileUtil {
             log.error("Ошибка сохранения файла {}", filePath, ex);
             throw new IllegalStateException(String.format("Не удалось сохранить файл %s", filePath), ex);
         }
-    }
-
-    private static StringBuilder readCode(
-            BufferedReader reader,
-            String codeFilePath,
-            Map<String, String> dest,
-            StringBuilder buf
-    ) throws IOException {
-        String line = reader.readLine();
-        if (line != null && line.startsWith(CODE_MARKER)) {
-            buf = Objects.requireNonNullElse(buf, new StringBuilder());
-            while ((line = reader.readLine()) != null && !line.startsWith(CODE_MARKER)) {
-                buf.append(line).append('\n');
-            }
-            buf.setLength(buf.length() - 1);
-            dest.put(codeFilePath, buf.toString());
-            buf.setLength(0);
-        }
-        return buf;
     }
 
     /**

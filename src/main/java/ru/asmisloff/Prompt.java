@@ -19,8 +19,6 @@ import static java.lang.Character.isWhitespace;
 @Log4j2
 public class Prompt {
 
-    public static String FILE_PATH_HEADER = "##### FILE: ";
-
     /**
      * Модель, выбранная через тег \m. Если не задана — null.
      */
@@ -49,13 +47,14 @@ public class Prompt {
     );
 
     /**
-     * Поддерживаемые расширения файлов для обрамления в markdown-блок.
+     * Поддерживаемые расширения файлов c информацией о markdown-блоке и стиле комментария для пути.
      */
-    private static final List<ExtToLang> codeFileExtToMdTag = List.of(
-            new ExtToLang(".java", "```Java"),
-            new ExtToLang(".kt", "```Kotlin"),
-            new ExtToLang(".sql", "```sql"),
-            new ExtToLang(".xml", "```xml")
+    @Getter
+    private static final List<FileTypeAttributes> fileTypeAttributes = List.of(
+            new FileTypeAttributes(".java", "```java", "//", ""),
+            new FileTypeAttributes(".kt", "```kotlin", "//", ""),
+            new FileTypeAttributes(".sql", "```sql", "--", ""),
+            new FileTypeAttributes(".xml", "```xml", "<!--", "-->")
     );
 
     private final Props props;
@@ -163,40 +162,37 @@ public class Prompt {
     }
 
     /**
-     * Добавляет содержимое файла в userLines. Для файлов с кодом добавляет комментарий с именем файла
-     * и обрамляет содержимое в markdown-блок.
+     * Добавляет содержимое файла в userLines.
+     * Для файлов с кодом оборачивает содержимое в markdown-блок, а путь к файлу вставляется
+     * комментарием в первой строке блока (стиль комментария зависит от типа файла).
      *
      * @param line строка с тегом \i и путём к файлу
      */
     private void addFileContent(String line) {
         var path = Path.of(extractTagArgument(line));
         var fileName = path.toAbsolutePath().toString();
-        var mdTag = getMdTag(fileName);
-        if (mdTag == null) {
-            userLines.add(FileUtil.readString(path));
-        } else {
-            userLines.add(FILE_PATH_HEADER + fileName);
-            userLines.add(mdTag);
-            userLines.add(FileUtil.readCode(path));
-            userLines.add("```");
-        }
+        fileTypeAttributes.stream()
+                .filter(att -> fileName.endsWith(att.ext()))
+                .findFirst()
+                .ifPresentOrElse(
+                        attributes -> {
+                            var commentLine = "%s%s%s".formatted(attributes.commentPrefix, fileName, attributes.commentSuffix);
+                            userLines.add(attributes.langMark);
+                            userLines.add(commentLine);
+                            userLines.add(FileUtil.getFileContent(path));
+                            userLines.add("```");
+                        },
+                        () -> userLines.add(FileUtil.getFileContent(path))
+                );
     }
 
     /**
-     * Возвращает начальный тег markdown для фрагмента программного кода. Тег выбирается по расширению файла.
+     * Хранит атрибуты, специфичные для файла заданного типа.
      *
-     * @param fileName имя файла.
-     * @return Тег или null, если расширение не поддерживается.
+     * @param ext           расширение файла.
+     * @param langMark      метка языка программирования для кодового блока в Markdown.
+     * @param commentPrefix последовательность символов, открывающая комментарий в коде.
+     * @param commentSuffix последовательность символов, закрывающая комментарий в коде.
      */
-    private @Nullable String getMdTag(@NotNull String fileName) {
-        for (var entry : codeFileExtToMdTag) {
-            if (fileName.endsWith(entry.ext)) {
-                return entry.lang;
-            }
-        }
-        return null;
-    }
-
-    private record ExtToLang(String ext, String lang) {
-    }
+    public record FileTypeAttributes(String ext, String langMark, String commentPrefix, String commentSuffix) {}
 }

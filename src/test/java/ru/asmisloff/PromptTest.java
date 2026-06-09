@@ -23,7 +23,6 @@ class PromptTest {
     Path tempDir;
 
     private Path promptFile;
-
     private Props props;
 
     @BeforeEach
@@ -74,16 +73,10 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals(
-                String.format("""
-                                %s%s
-                                ```Java
-                                public class Example { public static void main(String[] args) {} }
-                                ```""",
-                        Prompt.FILE_PATH_HEADER, javaFile.toAbsolutePath()
-                ),
-                String.join("\n", result)
-        );
+        String expected = "```java\n" +
+                          "//" + javaFile.toAbsolutePath() + "\n" +
+                          javaContent + "\n```";
+        assertEquals(expected, String.join("\n", result));
     }
 
     @Test
@@ -99,16 +92,10 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals(
-                String.format("""
-                                %s%s
-                                ```sql
-                                SELECT * FROM users WHERE id = 1;
-                                ```""",
-                        Prompt.FILE_PATH_HEADER, sqlFile.toAbsolutePath()
-                ),
-                String.join("\n", result)
-        );
+        String expected = "```sql\n" +
+                          "--" + sqlFile.toAbsolutePath() + "\n" +
+                          sqlContent + "\n```";
+        assertEquals(expected, String.join("\n", result));
     }
 
     @Test
@@ -124,17 +111,10 @@ class PromptTest {
         Prompt prompt = new Prompt(promptFile, props);
         List<String> result = prompt.getUserLines();
 
-        assertEquals(
-                String.format("""
-                                %s%s
-                                ```xml
-                                <?xml version="1.0"?>
-                                <root><element>value</element></root>
-                                ```""",
-                        Prompt.FILE_PATH_HEADER, xmlFile.toAbsolutePath()
-                ),
-                String.join("\n", result)
-        );
+        String expected = "```xml\n" +
+                          "<!--" + xmlFile.toAbsolutePath() + "-->\n" +
+                          xmlContent + "\n```";
+        assertEquals(expected, String.join("\n", result));
     }
 
     @Test

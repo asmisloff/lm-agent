@@ -18,12 +18,13 @@ class FileUtilTest {
     @TempDir
     Path tempDir;
 
+    // ======== find ========
+
     /**
      * Поиск существующего файла по полному совпадению (без учета регистра).
      */
     @Test
     void find_existingFileCaseInsensitive_returnsFile() throws IOException {
-        // Создание тестовых файлов
         Path targetFile = tempDir.resolve("TestFile.txt");
         Files.createFile(targetFile);
         Path otherFile = tempDir.resolve("Other.txt");
@@ -121,168 +122,75 @@ class FileUtilTest {
 
     /**
      * Пустой ответ при IOException.
-     * Заменяет текущую рабочую директорию на несуществующую для моделирования ошибки.
      */
     @Test
     void find_ioException_returnsEmptyListAndPrintsMessage() {
-        // Сохраняем оригинальную рабочую директорию
         Path originalDir = Path.of(".");
-
         try {
-            // Меняем текущую директорию на несуществующий путь для вызова IOException
             System.setProperty("user.dir", "/nonexistent/path/12345");
-
             var out = new StringBuilder();
             FileUtil.find(tempDir, "test", out);
-
             assertTrue(out.isEmpty());
         } finally {
-            // Восстанавливаем оригинальную директорию
             System.setProperty("user.dir", originalDir.toString());
         }
     }
 
+    // ======== getFileContent ========
+
     /**
-     * Читает содержимое Java-файла целиком.
+     * Несколько поддерживаемых языков — каждый извлекается с корректным префиксом комментария.
      */
     @Test
-    void readCode_readsJavaFile() throws IOException {
+    void extractCode_multipleLanguages_extractsBoth() throws IOException {
         String content = """
-                package com.example;
-                  import java.util.List;
-                \s
-                public class MyClass {
-                    public void method() {}
-                }
+                ```java
+                //A.java
+                Java code
+                ```
+                
+                ```sql
+                --B.sql
+                sql query
+                ```
+                
+                ```kotlin
+                // C.kt
+                kotlin kode
+                ```
+                
+                ```xml
+                <!-- D.xml -->
+                xml code
+                ```
+                
+                ```
+                Отсутствует md-метка
+                ```
+                
+                ```unknown
+                Неизвестный язык. Должен быть пропущен.
+                ```
                 """;
-        Path file = createJavaFile(content);
-        String result = FileUtil.readCode(file);
-
-        assertEquals(content.stripTrailing(), result);
-    }
-
-    /**
-     * Создает временный Java-файл с указанным содержимым.
-     */
-    private Path createJavaFile(String content) throws IOException {
-        Path file = tempDir.resolve("Test.java");
-        Files.writeString(file, content);
-        return file;
-    }
-
-    // extractCode
-
-    /**
-     * Тест extractCode с единственным блоком кода.
-     */
-    @Test
-    void extractCode_singleBlock_returnsMapWithCode() throws IOException {
-        String content = String.format("""
-                        %sTest.java
-                        ```
-                        public class Test {
-                            public void method() {}
-                        }
-                        ```
-                        """,
-                Prompt.FILE_PATH_HEADER
-        );
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
 
-        assertEquals(1, result.size());
-        assertEquals("""
-                        public class Test {
-                            public void method() {}
-                        }""",
-                result.get("Test.java")
-        );
+        assertEquals(4, result.size());
+        assertEquals("Java code", result.get("A.java"));
+        assertEquals("sql query", result.get("B.sql"));
+        assertEquals("kotlin kode", result.get("C.kt"));
+        assertEquals("xml code", result.get("D.xml"));
     }
 
     /**
-     * Тест extractCode с несколькими блоками — демонстрирует накопление в буфере.
+     * Строка комментария без пути после открывающего маркера — блок пропускается.
      */
     @Test
-    void extractCode_multipleBlocks_accumulatesInBuffer() throws IOException {
-        String content = String.format("""
-                        %sA.java
-                        ```
-                        codeA
-                        ```
-                        %sB.java
-                        ```
-                        codeB
-                        ```
-                        """,
-                Prompt.FILE_PATH_HEADER, Prompt.FILE_PATH_HEADER
-        );
+    void extractCode_missingFilePath_skipped() throws IOException {
+        String content = "```java\n// \n```\ncode\n```\n";
         Path file = createMarkdownFile(content);
         Map<String, String> result = FileUtil.extractCode(file);
-
-        assertEquals(2, result.size());
-        assertEquals("codeA", result.get("A.java"));
-        assertEquals("codeB", result.get("B.java"));
-    }
-
-    /**
-     * Файл без маркеров возвращает пустой результат.
-     */
-    @Test
-    void extractCode_noMarkers_returnsEmptyMap() throws IOException {
-        String content = "Some text\nwithout markers";
-        Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
-
-        assertTrue(result.isEmpty());
-    }
-
-    /**
-     * Заголовок без открывающих маркеров кода — игнорируется.
-     */
-    @Test
-    void extractCode_headerWithoutCodeBlock_ignored() throws IOException {
-        String content = String.format("""
-                        %sX.java
-                        No code block
-                        """,
-                Prompt.FILE_PATH_HEADER
-        );
-        Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
-
-        assertTrue(result.isEmpty());
-    }
-
-    /**
-     * Открывающий маркер без закрывающего — весь остаток файла считается кодом.
-     */
-    @Test
-    void extractCode_noClosingBackticks_takesRestOfFile() throws IOException {
-        String content = String.format("""
-                        %sCode.java
-                        ```
-                        some code
-                        next line without closing
-                        """,
-                Prompt.FILE_PATH_HEADER
-        );
-        Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
-
-        assertEquals(1, result.size());
-        assertEquals("some code\nnext line without closing", result.get("Code.java"));
-    }
-
-    /**
-     * Заголовок в конце файла (сразу конец данных) — игнорируется.
-     */
-    @Test
-    void extractCode_headerAtEndOfFile_ignored() throws IOException {
-        String content = String.format("%sEmpty.java\n", Prompt.FILE_PATH_HEADER);
-        Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
-
-        assertTrue(result.isEmpty());
+        assertTrue(result.isEmpty(), "Без указания файла блок игнорируется");
     }
 
     /**
@@ -294,7 +202,7 @@ class FileUtilTest {
         return file;
     }
 
-    // saveCode
+    // ======== saveCode ========
 
     /**
      * Сохранение кода в файл: файл создается, содержимое совпадает.
