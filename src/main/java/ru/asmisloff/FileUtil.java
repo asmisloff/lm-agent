@@ -83,8 +83,8 @@ public class FileUtil {
      * @param path путь к файлу Markdown.
      * @return Таблица, в которой ключ - имя файла, значение - код.
      */
-    public static @NotNull Map<String, String> extractCode(Path path) {
-        HashMap<String, String> res = new HashMap<>();
+    public static @NotNull LinkedHashMap<String, String> extractCode(Path path) {
+        LinkedHashMap<String, String> res = new LinkedHashMap<>();
         StringBuilder buf = new StringBuilder();
         try (var reader = Files.newBufferedReader(path)) {
             String line;
@@ -104,38 +104,6 @@ public class FileUtil {
             throw new RuntimeException(e);
         }
         return res;
-    }
-
-    private static void readUntilCodeMarker(BufferedReader reader, StringBuilder buf) throws IOException {
-        String line;
-        buf.setLength(0);
-        while ((line = reader.readLine()) != null && !line.startsWith(CODE_MARKER)) {
-            buf.append(line);
-        }
-        while (!buf.isEmpty() && Character.isWhitespace(buf.charAt(buf.length() - 1))) {
-            buf.setLength(buf.length() - 1);
-        }
-    }
-
-    private static String readFilePath(String langMark, BufferedReader reader) throws IOException {
-        var fileTypeAttributes = Prompt.getFileTypeAttributes().stream()
-                .filter(att -> langMark.startsWith(att.langMark()))
-                .findFirst()
-                .orElse(null);
-        if (fileTypeAttributes != null) {
-            String line = reader.readLine();
-            if (line != null && line.startsWith(fileTypeAttributes.commentPrefix())) {
-                var path = line.substring(
-                        fileTypeAttributes.commentPrefix().length(),
-                        line.lastIndexOf(fileTypeAttributes.commentSuffix())
-                );
-                if (path.isBlank()) {
-                    return null;
-                }
-                return path.strip();
-            }
-        }
-        return null;
     }
 
     /**
@@ -164,13 +132,49 @@ public class FileUtil {
      * @param substr искомая подстрока
      * @return {@code true}, если подстрока найдена; иначе {@code false}
      */
-    private static boolean containsIgnoreCase(@NotNull String str, @NotNull String substr) {
+    public static boolean containsIgnoreCase(@NotNull String str, @NotNull String substr) {
         for (int i = 0; i <= str.length() - substr.length(); i++) {
             if (str.regionMatches(true, i, substr, 0, substr.length())) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static void readUntilCodeMarker(BufferedReader reader, StringBuilder buf) throws IOException {
+        String line = reader.readLine();
+        buf.setLength(0);
+        while (line.isBlank()) { // пропустить пустые строки в начале файла
+            line = reader.readLine();
+        }
+        while (line != null && !line.startsWith(CODE_MARKER)) {
+            buf.append(line).append('\n');
+            line = reader.readLine();
+        }
+        while (!buf.isEmpty() && Character.isWhitespace(buf.charAt(buf.length() - 1))) {
+            buf.setLength(buf.length() - 1);
+        }
+    }
+
+    private static String readFilePath(String langMark, BufferedReader reader) throws IOException {
+        var fileTypeAttributes = Prompt.getFileTypeAttributes().stream()
+                .filter(att -> langMark.startsWith(att.langMark()))
+                .findFirst()
+                .orElse(null);
+        if (fileTypeAttributes != null) {
+            String line = reader.readLine();
+            if (line != null && line.startsWith(fileTypeAttributes.commentPrefix())) {
+                var path = line.substring(
+                        fileTypeAttributes.commentPrefix().length(),
+                        line.lastIndexOf(fileTypeAttributes.commentSuffix())
+                );
+                if (path.isBlank()) {
+                    return null;
+                }
+                return path.strip();
+            }
+        }
+        return null;
     }
 
 }

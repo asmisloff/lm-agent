@@ -21,7 +21,8 @@ public class CommandRegistry {
         reg = Map.of(
                 "send", new SendPromptCommand(props),
                 "find", new FindCommand(),
-                "preview", new PreviewCommand(props)
+                "preview", new PreviewCommand(props),
+                "save-code", new SaveCodeCommand()
         );
     }
 

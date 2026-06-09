@@ -1,5 +1,6 @@
 package ru.asmisloff;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -18,12 +19,8 @@ class FileUtilTest {
     @TempDir
     Path tempDir;
 
-    // ======== find ========
-
-    /**
-     * Поиск существующего файла по полному совпадению (без учета регистра).
-     */
     @Test
+    @DisplayName("Поиск существующего файла по полному совпадению (без учета регистра)")
     void find_existingFileCaseInsensitive_returnsFile() throws IOException {
         Path targetFile = tempDir.resolve("TestFile.txt");
         Files.createFile(targetFile);
@@ -37,10 +34,10 @@ class FileUtilTest {
         assertEquals(targetFile.toString(), out.toString());
     }
 
-    /**
-     * Поиск по частичному совпадению имени.
-     */
+    // ======== find ========
+
     @Test
+    @DisplayName("Поиск по частичному совпадению имени")
     void find_partialPatternMatch_returnsMatchingFiles() throws IOException {
         var expected = Files.createFile(tempDir.resolve("apple-pie.txt"));
         Files.createFile(tempDir.resolve("banana-cake.txt"));
@@ -53,10 +50,8 @@ class FileUtilTest {
         assertEquals(expected.toString(), out.toString());
     }
 
-    /**
-     * Пустой результат, если совпадений нет.
-     */
     @Test
+    @DisplayName("Пустой результат, если совпадений нет")
     void find_noMatchingFiles_returnsEmptyList() throws IOException {
         Files.createFile(tempDir.resolve("data.json"));
         Files.createFile(tempDir.resolve("config.yml"));
@@ -67,10 +62,8 @@ class FileUtilTest {
         assertTrue(out.isEmpty());
     }
 
-    /**
-     * Игнорирует поддиректории, возвращает только файлы.
-     */
     @Test
+    @DisplayName("Игнорирует поддиректории, возвращает только файлы")
     void find_ignoresDirectories_returnsOnlyFiles() throws IOException {
         Path file = tempDir.resolve("file.txt");
         Files.createFile(file);
@@ -83,10 +76,8 @@ class FileUtilTest {
         assertTrue(out.isEmpty());
     }
 
-    /**
-     * Ищет во всех поддиректориях (рекурсивно).
-     */
     @Test
+    @DisplayName("Ищет во всех поддиректориях (рекурсивно)")
     void find_searchesRecursively_returnsFileInSubdirectory() throws IOException {
         Path subDir = tempDir.resolve("sub");
         Files.createDirectory(subDir);
@@ -100,10 +91,8 @@ class FileUtilTest {
         assertEquals(targetFile.toString(), out.toString());
     }
 
-    /**
-     * Корректно обрабатывает пустой паттерн. todo: вообще-то, не должно так быть. Исправить.
-     */
     @Test
+    @DisplayName("Корректно обрабатывает пустой паттерн") // todo: вообще-то, не должно так быть. Исправить
     void find_emptyPattern_returnsAllFiles() throws IOException {
         Path file1 = tempDir.resolve("a.txt");
         Path file2 = tempDir.resolve("b.txt");
@@ -120,10 +109,8 @@ class FileUtilTest {
         );
     }
 
-    /**
-     * Пустой ответ при IOException.
-     */
     @Test
+    @DisplayName("Пустой ответ при IOException")
     void find_ioException_returnsEmptyListAndPrintsMessage() {
         Path originalDir = Path.of(".");
         try {
@@ -138,10 +125,8 @@ class FileUtilTest {
 
     // ======== getFileContent ========
 
-    /**
-     * Несколько поддерживаемых языков — каждый извлекается с корректным префиксом комментария.
-     */
     @Test
+    @DisplayName("Несколько поддерживаемых языков — каждый извлекается с корректным префиксом комментария")
     void extractCode_multipleLanguages_extractsBoth() throws IOException {
         String content = """
                 ```java
@@ -182,10 +167,8 @@ class FileUtilTest {
         assertEquals("xml code", result.get("D.xml"));
     }
 
-    /**
-     * Строка комментария без пути после открывающего маркера — блок пропускается.
-     */
     @Test
+    @DisplayName("Строка комментария без пути после открывающего маркера — блок пропускается")
     void extractCode_missingFilePath_skipped() throws IOException {
         String content = "```java\n// \n```\ncode\n```\n";
         Path file = createMarkdownFile(content);
@@ -204,10 +187,8 @@ class FileUtilTest {
 
     // ======== saveCode ========
 
-    /**
-     * Сохранение кода в файл: файл создается, содержимое совпадает.
-     */
     @Test
+    @DisplayName("Сохранение кода в файл: файл создается, содержимое совпадает")
     void saveCode_createsFileWithContent() throws IOException {
         Path file = tempDir.resolve("output.txt");
         String code = "System.out.println(\"Hello\");";
@@ -218,10 +199,8 @@ class FileUtilTest {
         assertEquals(code, Files.readString(file));
     }
 
-    /**
-     * Сохранение в несуществующую директорию: родительские директории создаются автоматически.
-     */
     @Test
+    @DisplayName("Сохранение в несуществующую директорию: родительские директории создаются автоматически")
     void saveCode_createsParentDirectories() throws IOException {
         Path file = tempDir.resolve("deep/nested/dir/code.txt");
         String code = "print(42)";
@@ -232,10 +211,8 @@ class FileUtilTest {
         assertEquals(code, Files.readString(file));
     }
 
-    /**
-     * Перезапись существующего файла: старое содержимое заменяется новым.
-     */
     @Test
+    @DisplayName("Перезапись существующего файла: старое содержимое заменяется новым")
     void saveCode_overwritesExistingFile() throws IOException {
         Path file = tempDir.resolve("existing.txt");
         Files.writeString(file, "old content");
