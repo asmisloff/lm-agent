@@ -4,6 +4,7 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.StreamResponse;
 import com.openai.models.chat.completions.ChatCompletionChunk;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +25,9 @@ import java.nio.file.Path;
 @Log4j2
 public class SendPromptCommand implements Command {
 
+    @Getter
     private final Props props;
+
     private final Prompt prompt;
     private final String model;
 

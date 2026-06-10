@@ -18,11 +18,14 @@ public class CommandRegistry {
      * @param props настройки приложения
      */
     public CommandRegistry(Props props) {
+        SendPromptCommand sendPromptCommand = new SendPromptCommand(props);
+        SaveCodeCommand saveCodeCommand = new SaveCodeCommand(props);
         reg = Map.of(
-                "send", new SendPromptCommand(props),
+                "send", sendPromptCommand,
                 "find", new FindCommand(),
                 "preview", new PreviewCommand(props),
-                "save-code", new SaveCodeCommand()
+                "save-code", saveCodeCommand,
+                "send-and-save", new SendAndSaveAllCommand(sendPromptCommand, saveCodeCommand)
         );
     }
 

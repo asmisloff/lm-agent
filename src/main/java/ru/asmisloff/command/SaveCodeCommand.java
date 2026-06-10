@@ -1,7 +1,9 @@
 package ru.asmisloff.command;
 
 import lombok.extern.log4j.Log4j2;
+import org.jetbrains.annotations.NotNull;
 import ru.asmisloff.FileUtil;
+import ru.asmisloff.Props;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -10,7 +12,9 @@ import java.util.Map;
 /**
  * Команда сохранить код.
  * Сохраняет код из md-файла с ответом модели в файлы на диске.
- * После обязательного пути к md-файлу можно указать произвольное количество фильтров:
+ * Первый аргумент — путь к md-файлу (опциональный). Если не указан, используется значение
+ * {@link Props#getAnswerFileName()} из настроек.
+ * После пути к md-файлу можно указать произвольное количество фильтров:
  * <ul>
  *   <li>Число — сохраняется кодовый блок с таким порядковым номером (нумерация с 1).</li>
  *   <li>Строка — сохраняется блок, ключ (путь) которого содержит эту подстроку без учёта регистра.
@@ -21,26 +25,40 @@ import java.util.Map;
 @Log4j2
 public class SaveCodeCommand implements Command {
 
+    private final Props props;
+
+    /**
+     * Создаёт команду сохранения кода.
+     *
+     * @param props настройки приложения, используются для получения пути к md-файлу по умолчанию.
+     */
+    public SaveCodeCommand(@NotNull Props props) {
+        this.props = props;
+    }
+
     /**
      * Выполнить команду.
      *
-     * @param args первый аргумент — путь к md-файлу (обязательный),
+     * @param args первый аргумент — путь к md-файлу (опциональный),
      *             остальные аргументы — опциональные фильтры (числа или строки)
-     * @throws IllegalArgumentException если путь не указан, номер блока не положителен,
+     * @throws IllegalArgumentException если номер блока не положителен,
      *                                  строковый фильтр даёт 0 или более одного совпадения
      * @throws RuntimeException         при ошибках сохранения
      */
     @Override
     public void exec(String... args) {
-        if (args.length < 1) {
-            throw new IllegalArgumentException("Не указан путь к md-файлу");
+        String mdFilePath;
+        if (args.length >= 1) {
+            mdFilePath = args[0];
+        } else {
+            mdFilePath = props.getAnswerFileName();
+            log.info("Путь к md-файлу не указан, используется значение из props: {}", mdFilePath);
         }
-        String mdFilePath = args[0];
 
         Path mdPath = Path.of(mdFilePath);
         Map<String, String> codeMap = FileUtil.extractCode(mdPath);
 
-        if (args.length == 1) {
+        if (args.length <= 1) {
             saveAllCodeBlocks(codeMap);
             return;
         }
