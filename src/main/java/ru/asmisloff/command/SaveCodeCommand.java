@@ -75,6 +75,14 @@ public class SaveCodeCommand implements Command {
         }
     }
 
+    /**
+     * Сохраняет первый кодовый блок, ключ которого содержит заданную подстроку без учёта регистра.
+     * Если найдено ноль или больше одного совпадения, генерируется исключение.
+     *
+     * @param entries список пар (путь к файлу, код).
+     * @param arg     подстрока для поиска в ключе.
+     * @throws IllegalArgumentException если совпадений 0 или больше 1
+     */
     private static void saveMatchingCodeBlock(List<Map.Entry<String, String>> entries, String arg) {
         var matchingEntries = entries.stream()
                 .filter(e -> FileUtil.containsIgnoreCase(e.getKey(), arg))
@@ -89,6 +97,13 @@ public class SaveCodeCommand implements Command {
         FileUtil.saveCode(e.getKey(), e.getValue());
     }
 
+    /**
+     * Сохраняет кодовый блок по порядковому номеру (начиная с 1).
+     *
+     * @param n       номер блока (от единицы).
+     * @param entries список пар (путь к файлу, код).
+     * @throws IllegalArgumentException если номер меньше 1 или превышает количество блоков
+     */
     private static void saveNthCodeBlock(Integer n, List<Map.Entry<String, String>> entries) {
         Map.Entry<String, String> entry;
         int idx = n - 1;
