@@ -148,7 +148,7 @@ public class FileUtil {
             line = reader.readLine();
         }
         while (line != null && !line.startsWith(CODE_MARKER)) {
-            buf.append(line).append('\n');
+            buf.append(line).append(System.lineSeparator());
             line = reader.readLine();
         }
         while (!buf.isEmpty() && Character.isWhitespace(buf.charAt(buf.length() - 1))) {
