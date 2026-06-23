@@ -161,10 +161,10 @@ class FileUtilTest {
         Map<String, String> result = FileUtil.extractCode(file);
 
         assertEquals(4, result.size());
-        assertEquals("Java code", result.get("A.java"));
-        assertEquals("sql query", result.get("B.sql"));
-        assertEquals("kotlin kode", result.get("C.kt"));
-        assertEquals("xml code", result.get("D.xml"));
+        assertEquals("Java code" + System.lineSeparator(), result.get("A.java"));
+        assertEquals("sql query" + System.lineSeparator(), result.get("B.sql"));
+        assertEquals("kotlin kode" + System.lineSeparator(), result.get("C.kt"));
+        assertEquals("xml code" + System.lineSeparator(), result.get("D.xml"));
     }
 
     @Test

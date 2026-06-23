@@ -151,9 +151,6 @@ public class FileUtil {
             buf.append(line).append(System.lineSeparator());
             line = reader.readLine();
         }
-        while (!buf.isEmpty() && Character.isWhitespace(buf.charAt(buf.length() - 1))) {
-            buf.setLength(buf.length() - 1);
-        }
     }
 
     private static String readFilePath(String langMark, BufferedReader reader) throws IOException {
