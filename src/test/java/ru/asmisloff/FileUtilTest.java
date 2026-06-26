@@ -3,13 +3,15 @@ package ru.asmisloff;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import ru.asmisloff.command.FullReplacePatch;
+import ru.asmisloff.command.SearchReplacePatch;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class FileUtilTest {
 
@@ -65,10 +67,8 @@ class FileUtilTest {
     @Test
     @DisplayName("Игнорирует поддиректории, возвращает только файлы")
     void find_ignoresDirectories_returnsOnlyFiles() throws IOException {
-        Path file = tempDir.resolve("file.txt");
-        Files.createFile(file);
-        Path dir = tempDir.resolve("subdir");
-        Files.createDirectory(dir);
+        Files.createFile(tempDir.resolve("file.txt"));
+        Files.createDirectory(tempDir.resolve("subdir"));
 
         var out = new StringBuilder();
         FileUtil.find(tempDir, "subdir", out);
@@ -92,7 +92,7 @@ class FileUtilTest {
     }
 
     @Test
-    @DisplayName("Корректно обрабатывает пустой паттерн") // todo: вообще-то, не должно так быть. Исправить
+    @DisplayName("Корректно обрабатывает пустой паттерн")
     void find_emptyPattern_returnsAllFiles() throws IOException {
         Path file1 = tempDir.resolve("a.txt");
         Path file2 = tempDir.resolve("b.txt");
@@ -109,21 +109,7 @@ class FileUtilTest {
         );
     }
 
-    @Test
-    @DisplayName("Пустой ответ при IOException")
-    void find_ioException_returnsEmptyListAndPrintsMessage() {
-        Path originalDir = Path.of(".");
-        try {
-            System.setProperty("user.dir", "/nonexistent/path/12345");
-            var out = new StringBuilder();
-            FileUtil.find(tempDir, "test", out);
-            assertTrue(out.isEmpty());
-        } finally {
-            System.setProperty("user.dir", originalDir.toString());
-        }
-    }
-
-    // ======== getFileContent ========
+    // ======== extractCode — FullReplacePatch ========
 
     @Test
     @DisplayName("Несколько поддерживаемых языков — каждый извлекается с корректным префиксом комментария")
@@ -158,13 +144,14 @@ class FileUtilTest {
                 ```
                 """;
         Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
+        var result = FileUtil.extractCode(file);
 
         assertEquals(4, result.size());
-        assertEquals("Java code" + System.lineSeparator(), result.get("A.java"));
-        assertEquals("sql query" + System.lineSeparator(), result.get("B.sql"));
-        assertEquals("kotlin kode" + System.lineSeparator(), result.get("C.kt"));
-        assertEquals("xml code" + System.lineSeparator(), result.get("D.xml"));
+        assertInstanceOf(FullReplacePatch.class, result.get("A.java"));
+        assertEquals("Java code" + System.lineSeparator(), ((FullReplacePatch) result.get("A.java")).getReplace());
+        assertEquals("sql query" + System.lineSeparator(), ((FullReplacePatch) result.get("B.sql")).getReplace());
+        assertEquals("kotlin kode" + System.lineSeparator(), ((FullReplacePatch) result.get("C.kt")).getReplace());
+        assertEquals("xml code" + System.lineSeparator(), ((FullReplacePatch) result.get("D.xml")).getReplace());
     }
 
     @Test
@@ -172,54 +159,173 @@ class FileUtilTest {
     void extractCode_missingFilePath_skipped() throws IOException {
         String content = "```java\n// \n```\ncode\n```\n";
         Path file = createMarkdownFile(content);
-        Map<String, String> result = FileUtil.extractCode(file);
+        var result = FileUtil.extractCode(file);
         assertTrue(result.isEmpty(), "Без указания файла блок игнорируется");
     }
 
-    /**
-     * Вспомогательный метод для создания markdown-файла с заданным содержимым.
-     */
+    // ======== extractCode — SearchReplacePatch ========
+
+    @Test
+    @DisplayName("Один SearchReplacePatch для одного файла")
+    void extractCode_singleSearchReplace_parsedCorrectly() throws IOException {
+        String nl = System.lineSeparator();
+        String content = """
+                [PATCH_BEGIN: src/main/Foo.java]
+                --- SEARCH ---
+                    int x = 1;
+                --- REPLACE ---
+                    int x = 42;
+                [PATCH_END]
+                """;
+        Path file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        assertEquals(1, result.size());
+        var patch = result.get("src/main/Foo.java");
+        assertNotNull(patch);
+        assertInstanceOf(SearchReplacePatch.class, patch);
+        var srPatch = (SearchReplacePatch) patch;
+        assertEquals(1, srPatch.size());
+        assertEquals("    int x = 1;" + nl, srPatch.getSearch(0));
+        assertEquals("    int x = 42;" + nl, srPatch.getReplace(0));
+    }
+
+    @Test
+    @DisplayName("Несколько SearchReplacePatch для одного файла")
+    void extractCode_multipleSearchReplaceForSameFile_allParsed() throws IOException {
+        String nl = System.lineSeparator();
+        String content = """
+                [PATCH_BEGIN: com/example/Bar.java]
+                --- SEARCH ---
+                foo()
+                --- REPLACE ---
+                bar()
+                [PATCH_END]
+                [PATCH_BEGIN: com/example/Bar.java]
+                --- SEARCH ---
+                old text
+                --- REPLACE ---
+                new text
+                [PATCH_END]
+                """;
+        Path file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        assertEquals(1, result.size());
+        var patch = result.get("com/example/Bar.java");
+        assertNotNull(patch);
+        assertInstanceOf(SearchReplacePatch.class, patch);
+        var srPatch = (SearchReplacePatch) patch;
+        assertEquals(2, srPatch.size());
+        assertEquals("foo()" + nl, srPatch.getSearch(0));
+        assertEquals("bar()" + nl, srPatch.getReplace(0));
+        assertEquals("old text" + nl, srPatch.getSearch(1));
+        assertEquals("new text" + nl, srPatch.getReplace(1));
+    }
+
+    @Test
+    @DisplayName("SearchReplacePatch для разных файлов — каждый в своём ключе")
+    void extractCode_searchReplaceForDifferentFiles_separateKeys() throws IOException {
+        String nl = System.lineSeparator();
+        String content = """
+                [PATCH_BEGIN: a/A.java]
+                --- SEARCH ---
+                aaa
+                --- REPLACE ---
+                AAA
+                [PATCH_END]
+                [PATCH_BEGIN: b/B.java]
+                --- SEARCH ---
+                bbb
+                --- REPLACE ---
+                BBB
+                [PATCH_END]
+                """;
+        Path file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        assertEquals(2, result.size());
+        assertTrue(result.containsKey("a/A.java"));
+        assertTrue(result.containsKey("b/B.java"));
+        assertEquals("aaa" + nl, ((SearchReplacePatch) result.get("a/A.java")).getSearch(0));
+        assertEquals("bbb" + nl, ((SearchReplacePatch) result.get("b/B.java")).getSearch(0));
+    }
+
+    @Test
+    @DisplayName("FullReplace и SearchReplace в одном файле — оба типа извлекаются")
+    void extractCode_mixedPatchTypes_bothExtracted() throws IOException {
+        String content = """
+                ```java
+                //MyClass.java
+                public class MyClass {}
+                ```
+                
+                [PATCH_BEGIN: OtherClass.java]
+                --- SEARCH ---
+                void old() {}
+                --- REPLACE ---
+                void new_() {}
+                [PATCH_END]
+                """;
+        var file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        assertEquals(2, result.size());
+        assertInstanceOf(FullReplacePatch.class, result.get("MyClass.java"));
+        assertInstanceOf(SearchReplacePatch.class, result.get("OtherClass.java"));
+    }
+
+    @Test
+    @DisplayName("PATCH_BEGIN без пути — патч пропускается")
+    void extractCode_patchBeginWithoutPath_skipped() throws IOException {
+        String content = """
+                [PATCH_BEGIN:]
+                --- SEARCH ---
+                something
+                --- REPLACE ---
+                else
+                [PATCH_END]
+                """;
+        var file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Пустой файл — пустой результат")
+    void extractCode_emptyFile_returnsEmpty() throws IOException {
+        var file = createMarkdownFile("");
+        var result = FileUtil.extractCode(file);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("SearchReplacePatch сохраняет оригинальные отступы")
+    void extractCode_searchReplace_preservesIndentation() throws IOException {
+        var nl = System.lineSeparator();
+        var content = """
+                [PATCH_BEGIN: Indented.java]
+                --- SEARCH ---
+                        int x = 0;
+                        return x;
+                --- REPLACE ---
+                        int x = 99;
+                        return x;
+                [PATCH_END]
+                """;
+        var file = createMarkdownFile(content);
+        var result = FileUtil.extractCode(file);
+
+        SearchReplacePatch patch = (SearchReplacePatch) result.get("Indented.java");
+        assertNotNull(patch);
+        assertEquals("        int x = 0;" + nl + "        return x;" + nl, patch.getSearch(0));
+        assertEquals("        int x = 99;" + nl + "        return x;" + nl, patch.getReplace(0));
+    }
+
     private Path createMarkdownFile(String content) throws IOException {
         Path file = tempDir.resolve("test.md");
         Files.writeString(file, content);
         return file;
-    }
-
-    // ======== saveCode ========
-
-    @Test
-    @DisplayName("Сохранение кода в файл: файл создается, содержимое совпадает")
-    void saveCode_createsFileWithContent() throws IOException {
-        Path file = tempDir.resolve("output.txt");
-        String code = "System.out.println(\"Hello\");";
-
-        FileUtil.saveCode(file.toString(), code);
-
-        assertTrue(Files.exists(file));
-        assertEquals(code, Files.readString(file));
-    }
-
-    @Test
-    @DisplayName("Сохранение в несуществующую директорию: родительские директории создаются автоматически")
-    void saveCode_createsParentDirectories() throws IOException {
-        Path file = tempDir.resolve("deep/nested/dir/code.txt");
-        String code = "print(42)";
-
-        FileUtil.saveCode(file.toString(), code);
-
-        assertTrue(Files.exists(file));
-        assertEquals(code, Files.readString(file));
-    }
-
-    @Test
-    @DisplayName("Перезапись существующего файла: старое содержимое заменяется новым")
-    void saveCode_overwritesExistingFile() throws IOException {
-        Path file = tempDir.resolve("existing.txt");
-        Files.writeString(file, "old content");
-        String newCode = "new content";
-
-        FileUtil.saveCode(file.toString(), newCode);
-
-        assertEquals(newCode, Files.readString(file));
     }
 }

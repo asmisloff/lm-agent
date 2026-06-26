@@ -3,20 +3,41 @@ package ru.asmisloff;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
+import ru.asmisloff.command.FullReplacePatch;
+import ru.asmisloff.command.Patch;
+import ru.asmisloff.command.SearchReplacePatch;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Log4j2
 @UtilityClass
 public class FileUtil {
 
     /**
-     * Закрывающий маркер блока кода в markdown.
+     * Маркер блока кода в markdown.
      */
     private static final String CODE_MARKER = "```";
+
+    /**
+     * Маркер начала search-replace патча.
+     */
+    private static final String PATCH_BEGIN_PREFIX = "[PATCH_BEGIN:";
+
+    /**
+     * Маркер конца search-replace патча.
+     */
+    private static final String PATCH_END = "[PATCH_END]";
+
+    /**
+     * Разделитель search и replace секций.
+     */
+    private static final String SEARCH_MARKER = "--- SEARCH ---";
+    private static final String REPLACE_MARKER = "--- REPLACE ---";
 
     /**
      * Читает содержимое файла в список строк.
@@ -42,9 +63,17 @@ public class FileUtil {
      */
     public static String getFileContent(Path path) {
         try {
-            return Files.readString(path).strip();
+            return Files.readString(path);
         } catch (IOException ex) {
             throw new IllegalStateException(String.format("Не удалось прочитать файл %s", path.toAbsolutePath()), ex);
+        }
+    }
+
+    public static void writeString(Path path, String s) {
+        try {
+            Files.writeString(path, s);
+        } catch (IOException ex) {
+            throw new IllegalStateException(String.format("Не удалось записать в файл %s", path.toAbsolutePath()), ex);
         }
     }
 
@@ -77,52 +106,41 @@ public class FileUtil {
 
     /**
      * Извлечь программный код из файла Markdown.
-     * <p>Код должен быть заключен в тройные кавычки с указанием метки языка программирования, по правилам Markdown.
-     * <p>Первая строка кода должна содержать путь к файлу. Если путь не указан, код будет пропущен.
+     * Поддерживает блоки FullReplace (в тройных кавычках) и SearchReplace (в маркерах PATCH_BEGIN/PATCH_END).
      *
      * @param path путь к файлу Markdown.
-     * @return Таблица, в которой ключ - имя файла, значение - код.
+     * @return таблица: ключ — путь к файлу, значение — патч.
      */
-    public static @NotNull LinkedHashMap<String, String> extractCode(Path path) {
-        LinkedHashMap<String, String> res = new LinkedHashMap<>();
+    public static @NotNull Map<String, Patch> extractCode(Path path) {
+        Map<String, Patch> res = new HashMap<>();
         StringBuilder buf = new StringBuilder();
         try (var reader = Files.newBufferedReader(path)) {
             String line;
-            String filePath;
             while ((line = reader.readLine()) != null) {
-                if (!line.startsWith(CODE_MARKER)) {
-                    continue;
+                if (line.startsWith(CODE_MARKER)) {
+                    // FullReplacePatch
+                    var filePath = readFilePath(line, reader);
+                    if (filePath == null) {
+                        continue;
+                    }
+                    readUntilCodeMarker(reader, buf);
+                    res.put(filePath, new FullReplacePatch(buf.toString()));
+                } else if (line.startsWith(PATCH_BEGIN_PREFIX)) {
+                    // SearchReplacePatch
+                    String filePath = extractPatchFilePath(line);
+                    if (filePath == null) {
+                        continue;
+                    }
+                    readSearchReplacePatch(
+                            reader,
+                            (SearchReplacePatch) res.computeIfAbsent(filePath, unused -> new SearchReplacePatch())
+                    );
                 }
-                filePath = readFilePath(line, reader);
-                if (filePath == null) {
-                    continue;
-                }
-                readUntilCodeMarker(reader, buf);
-                res.put(filePath, buf.toString());
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         return res;
-    }
-
-    /**
-     * Сохранить строку с кодом в файл по указанному пути.
-     * <p>Если родительские директории отсутствуют, они будут созданы.</p>
-     *
-     * @param filePath путь к файлу, включая имя.
-     * @param code     строка с исходным кодом для сохранения.
-     * @throws IllegalStateException если произошла ошибка ввода-вывода.
-     */
-    public static void saveCode(String filePath, String code) {
-        try {
-            Path path = Path.of(filePath);
-            Files.createDirectories(path.getParent());
-            Files.writeString(path, code);
-        } catch (IOException ex) {
-            log.error("Ошибка сохранения файла {}", filePath, ex);
-            throw new IllegalStateException(String.format("Не удалось сохранить файл %s", filePath), ex);
-        }
     }
 
     /**
@@ -141,10 +159,57 @@ public class FileUtil {
         return false;
     }
 
+    /**
+     * Извлечь путь к файлу из строки вида {@code [PATCH_BEGIN: путь/к/файлу]}.
+     */
+    private static String extractPatchFilePath(String line) {
+        int start = PATCH_BEGIN_PREFIX.length();
+        int end = line.lastIndexOf(']');
+        if (end <= start) {
+            return null;
+        }
+        String path = line.substring(start, end).strip();
+        return path.isEmpty() ? null : path;
+    }
+
+    /**
+     * Читает одну пару search/replace из потока и добавляет в {@code patch}.
+     * Ожидает секции {@code --- SEARCH ---} и {@code --- REPLACE ---}, завершается по {@code [PATCH_END]}.
+     */
+    private static void readSearchReplacePatch(BufferedReader reader, SearchReplacePatch patch) throws IOException {
+        StringBuilder search = new StringBuilder();
+        StringBuilder replace = new StringBuilder();
+        boolean inSearch = false;
+        boolean inReplace = false;
+
+        String line;
+        while ((line = reader.readLine()) != null && !line.equals(PATCH_END)) {
+            if (line.equals(SEARCH_MARKER)) {
+                inSearch = true;
+                inReplace = false;
+                continue;
+            }
+            if (line.equals(REPLACE_MARKER)) {
+                inReplace = true;
+                inSearch = false;
+                continue;
+            }
+            if (inSearch) {
+                search.append(line).append(System.lineSeparator());
+            } else if (inReplace) {
+                replace.append(line).append(System.lineSeparator());
+            }
+        }
+
+        if (!search.isEmpty() || !replace.isEmpty()) {
+            patch.addEntry(search.toString(), replace.toString());
+        }
+    }
+
     private static void readUntilCodeMarker(BufferedReader reader, StringBuilder buf) throws IOException {
         String line = reader.readLine();
         buf.setLength(0);
-        while (line.isBlank()) { // пропустить пустые строки в начале файла
+        while (line != null && line.isBlank()) {
             line = reader.readLine();
         }
         while (line != null && !line.startsWith(CODE_MARKER)) {
@@ -173,5 +238,4 @@ public class FileUtil {
         }
         return null;
     }
-
 }
