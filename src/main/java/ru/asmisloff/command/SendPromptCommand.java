@@ -11,6 +11,8 @@ import org.jetbrains.annotations.Nullable;
 import ru.asmisloff.App;
 import ru.asmisloff.Prompt;
 import ru.asmisloff.Props;
+import ru.asmisloff.tool.ToolCallAccumulator;
+import ru.asmisloff.tool.ToolRegistry;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,6 +20,8 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Команда на отправку промпта модели.
@@ -56,6 +60,10 @@ public class SendPromptCommand implements Command {
         var paramsBuilder = ChatCompletionCreateParams.builder()
                 .model(model)
                 .addSystemMessage(getSystemPrompt(prompt));
+
+        for (var toolClass : ToolRegistry.getToolKnownClasses()) {
+            paramsBuilder.addTool(toolClass);
+        }
 
         prompt.getUserLines().forEach(paramsBuilder::addUserMessage);
 
@@ -111,11 +119,22 @@ public class SendPromptCommand implements Command {
             @Nullable Writer writer,
             String answerFileName
     ) {
+        Map<Long, ToolCallAccumulator> toolCallAccumulators = new HashMap<>();
         completion.stream()
-                .map(chunk -> chunk.choices().isEmpty()
-                        ? ""
-                        : chunk.choices().get(0).delta().content().orElse("")
-                )
+                .map(chunk -> {
+                    if (chunk.choices().isEmpty()) {
+                        return "";
+                    }
+                    var delta = chunk.choices().get(0).delta();
+                    delta.toolCalls().ifPresent(toolCalls -> toolCalls.forEach(toolCall -> {
+                        var acc = toolCallAccumulators.computeIfAbsent(toolCall.index(), unused -> new ToolCallAccumulator());
+                        toolCall.function().ifPresent(f -> {
+                            f.name().ifPresent(acc::setName);
+                            f.arguments().ifPresent(acc::appendArguments);
+                        });
+                    }));
+                    return delta.content().orElse("");
+                })
                 .filter(choice -> !choice.isEmpty())
                 .forEach(choice -> {
                     System.out.print(choice);
@@ -127,6 +146,7 @@ public class SendPromptCommand implements Command {
                         }
                     }
                 });
+        toolCallAccumulators.forEach((index, acc) -> ToolRegistry.execTool(acc));
     }
 
     /**
