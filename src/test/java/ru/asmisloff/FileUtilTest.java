@@ -21,6 +21,20 @@ class FileUtilTest {
     @TempDir
     Path tempDir;
 
+    // ======== writeString ========
+
+    @Test
+    @DisplayName("Запись в несуществующий файл — файл создаётся и содержит переданную строку")
+    void writeString_fileDoesNotExist_createsFileAndWritesContent() throws IOException {
+        Path file = tempDir.resolve("newFile.txt");
+        String expected = "Hello, writeString!";
+
+        FileUtil.writeString(file, expected);
+
+        assertTrue(Files.exists(file), "Файл должен быть создан");
+        assertEquals(expected, Files.readString(file));
+    }
+
     @Test
     @DisplayName("Поиск существующего файла по полному совпадению (без учета регистра)")
     void find_existingFileCaseInsensitive_returnsFile() throws IOException {
@@ -119,26 +133,26 @@ class FileUtilTest {
                 //A.java
                 Java code
                 ```
-                
+
                 ```sql
                 --B.sql
                 sql query
                 ```
-                
+
                 ```kotlin
                 // C.kt
                 kotlin kode
                 ```
-                
+
                 ```xml
                 <!-- D.xml -->
                 xml code
                 ```
-                
+
                 ```
                 Отсутствует md-метка
                 ```
-                
+
                 ```unknown
                 Неизвестный язык. Должен быть пропущен.
                 ```
@@ -259,7 +273,7 @@ class FileUtilTest {
                 //MyClass.java
                 public class MyClass {}
                 ```
-                
+
                 [PATCH_BEGIN: OtherClass.java]
                 --- SEARCH ---
                 void old() {}
