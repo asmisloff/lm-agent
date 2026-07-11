@@ -6,13 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
+import ru.asmisloff.GitUtil;
+
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
@@ -54,14 +53,13 @@ public class SaveToFileTool implements Tool {
     @Override
     public void exec() {
         log.info("Сохранение текста в файл: {}", path);
-        Path filePath = Path.of(path);
-        Path resolved = CWD.resolve(path).normalize();
-        if (!resolved.startsWith(CWD)) {
-            log.warn("Попытка записи за пределы рабочей директории ({}): {}", CWD, resolved);
+        Path resolvedPath = CWD.resolve(path).normalize();
+        if (!resolvedPath.startsWith(CWD)) {
+            log.warn("Попытка записи за пределы рабочей директории ({}): {}", CWD, resolvedPath);
             return;
         }
-        boolean isNewFile = !Files.exists(filePath);
-        try (var writer = Files.newBufferedWriter(filePath, isNewFile ? CREATE_NEW : WRITE)) {
+        boolean isNewFile = !Files.exists(resolvedPath);
+        try (var writer = Files.newBufferedWriter(resolvedPath, isNewFile ? CREATE_NEW : WRITE)) {
             writeNormalized(content, writer);
             if (!content.endsWith("\n") && !content.endsWith("\r")) {
                 writer.write(System.lineSeparator());
@@ -73,39 +71,7 @@ public class SaveToFileTool implements Tool {
         }
 
         if (isNewFile) {
-            addToGit(filePath);
-        }
-    }
-
-    /**
-     * Добавляет файл в индекс Git командой {@code git add}.
-     *
-     * @param filePath путь к файлу
-     */
-    private void addToGit(Path filePath) {
-        try {
-            var pb = new ProcessBuilder("git", "add", filePath.toAbsolutePath().toString());
-            pb.directory(Optional.ofNullable(filePath.getParent())
-                    .map(Path::toFile)
-                    .orElse(new File("./"))
-            );
-            var process = pb.start();
-            if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                log.error("git add завершился по таймауту");
-                return;
-            }
-            var exitCode = process.exitValue();
-            if (exitCode == 0) {
-                log.info("Файл добавлен в Git: {}", filePath);
-            } else {
-                String errorOutput = new String(process.getErrorStream().readAllBytes());
-                log.warn("Не удалось добавить файл в Git (exit code {}): {}", exitCode, errorOutput);
-            }
-        } catch (IOException e) {
-            log.warn("Ошибка при добавлении файла в Git: {}", filePath, e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("Поток прерван при добавлении файла в Git: {}", filePath, e);
+            GitUtil.gitAdd(resolvedPath);
         }
     }
 

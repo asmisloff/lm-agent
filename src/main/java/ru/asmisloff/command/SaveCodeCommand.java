@@ -3,8 +3,10 @@ package ru.asmisloff.command;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 import ru.asmisloff.FileUtil;
+import ru.asmisloff.GitUtil;
 import ru.asmisloff.Props;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -59,12 +61,18 @@ public class SaveCodeCommand implements Command {
         for (var entry : patchMap.entrySet()) {
             var path = Path.of(entry.getKey());
             var patch = entry.getValue();
+            boolean isNewFile = !Files.exists(path);
             if (patch instanceof FullReplacePatch fullReplacePatch) {
                 FileUtil.writeString(path, fullReplacePatch.getReplace());
                 log.info("FullReplace сохранён в файл: {}", path.toAbsolutePath());
             } else if (patch instanceof SearchReplacePatch searchReplacePatch) {
                 applySearchReplacePatches(path, searchReplacePatch);
                 log.info("SearchReplace ({} пар) сохранён в файл: {}", searchReplacePatch.size(), path.toAbsolutePath());
+            } else {
+                log.warn("Неизвестный тип патча {} для файла {}", patch.getClass().getSimpleName(), path);
+            }
+            if (isNewFile) {
+                GitUtil.gitAdd(path);
             }
         }
     }
