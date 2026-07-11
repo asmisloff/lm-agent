@@ -15,6 +15,45 @@ import java.util.concurrent.TimeUnit;
 public class GitUtil {
 
     /**
+     * Возвращает diff (patch) указанного коммита.
+     *
+     * @param id хеш коммита
+     * @return вывод {@code git show <id>} или {@code null} при ошибке
+     */
+    public static String getPatch(String id) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder("git", "show", id)
+                    .directory(Path.of(System.getProperty("user.dir")).toFile())
+                    .redirectErrorStream(true)
+                    .start();
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                log.error("git show завершился по таймауту для коммита {}", id);
+                return null;
+            }
+            int exitCode = process.exitValue();
+            String output = new String(process.getInputStream().readAllBytes());
+            if (exitCode == 0) {
+                return output;
+            } else {
+                log.warn("git show завершился с ошибкой (exit code {}): {}", exitCode, output);
+                return null;
+            }
+        } catch (IOException e) {
+            log.warn("Ошибка при получении патча для коммита {}: {}", id, e.toString());
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Поток прерван при получении патча для коммита {}", id, e);
+            return null;
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
+        }
+    }
+
+    /**
      * Добавляет файл в индекс Git командой {@code git add}.
      *
      * @param filePath путь к файлу
