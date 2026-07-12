@@ -23,7 +23,8 @@ public class ToolRegistry {
      * Сопоставление простого имени класса → класс инструмента
      */
     private static final Map<String, Class<? extends Tool>> TOOLS = Map.of(
-            SaveToFileTool.class.getSimpleName(), SaveToFileTool.class
+            SaveToFileTool.class.getSimpleName(), SaveToFileTool.class,
+            AskUserTool.class.getSimpleName(), AskUserTool.class
     );
 
     /**

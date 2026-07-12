@@ -1,5 +1,6 @@
 package ru.asmisloff;
 
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import ru.asmisloff.command.CommandRegistry;
 
@@ -11,7 +12,15 @@ import java.util.Arrays;
 @Log4j2
 public class App {
 
+    /**
+     * Параметры конфигурации приложения
+     */
+    @Getter
     private static final Props props = new Props();
+
+    /**
+     * Реестр команд
+     */
     private static final CommandRegistry cmdReg = new CommandRegistry(props);
 
     /**

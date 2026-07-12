@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,85 +35,79 @@ class PromptTest {
     @Test
     @DisplayName("Построение промпта без тегов замены")
     void buildPromptWithoutTags() throws IOException {
-        String content = "Line 1\nLine 2\nLine 3";
+        var content = "Line 1\nLine 2\nLine 3";
         Files.write(promptFile, content.getBytes());
 
-        Prompt builder = new Prompt(promptFile, props);
-        List<String> result = builder.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        assertEquals(List.of("Line 1", "Line 2", "Line 3"), result);
+        assertEquals("Line 1\nLine 2\nLine 3\n", prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка тега \\i для вставки содержимого файла")
     void handleFileContentTag() throws IOException {
-        Path externalFile = tempDir.resolve("external.txt");
+        var externalFile = tempDir.resolve("external.txt");
         Files.write(externalFile, "External file content".getBytes());
-        String promptContent = "\\i " + externalFile;
+        var promptContent = "\\i " + externalFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile, props);
-        List<String> result = builder.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        assertEquals(1, result.size());
-        assertEquals("External file content", result.get(0));
+        assertEquals("External file content\n", prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка тега \\i с Java-файлом: обрамление в markdown-блок")
     void handleJavaFileWithTag() throws IOException {
-        Path javaFile = tempDir.resolve("Example.java");
-        String javaContent = "public class Example { public static void main(String[] args) {} }";
+        var javaFile = tempDir.resolve("Example.java");
+        var javaContent = "public class Example { public static void main(String[] args) {} }";
         Files.write(javaFile, javaContent.getBytes());
 
-        String promptContent = "\\i " + javaFile;
+        var promptContent = "\\i " + javaFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt prompt = new Prompt(promptFile, props);
-        List<String> result = prompt.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        String expected = "```java\n" +
-                          "//" + javaFile.toAbsolutePath() + "\n" +
-                          javaContent + "\n```";
-        assertEquals(expected, String.join("\n", result));
+        var expected = "```java\n" +
+                       "//" + javaFile.toAbsolutePath() + "\n" +
+                       javaContent + "\n```\n";
+        assertEquals(expected, prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка тега \\i с SQL-файлом: обрамление в markdown-блок")
     void handleSqlFileWithTag() throws IOException {
-        Path sqlFile = tempDir.resolve("query.sql");
-        String sqlContent = "SELECT * FROM users WHERE id = 1;";
+        var sqlFile = tempDir.resolve("query.sql");
+        var sqlContent = "SELECT * FROM users WHERE id = 1;";
         Files.write(sqlFile, sqlContent.getBytes());
 
-        String promptContent = "\\i " + sqlFile;
+        var promptContent = "\\i " + sqlFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt prompt = new Prompt(promptFile, props);
-        List<String> result = prompt.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        String expected = "```sql\n" +
-                          "--" + sqlFile.toAbsolutePath() + "\n" +
-                          sqlContent + "\n```";
-        assertEquals(expected, String.join("\n", result));
+        var expected = "```sql\n" +
+                       "--" + sqlFile.toAbsolutePath() + "\n" +
+                       sqlContent + "\n```\n";
+        assertEquals(expected, prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка тега \\i с XML-файлом: обрамление в markdown-блок")
     void handleXmlFileWithTag() throws IOException {
-        Path xmlFile = tempDir.resolve("config.xml");
-        String xmlContent = "<?xml version=\"1.0\"?>\n<root><element>value</element></root>";
+        var xmlFile = tempDir.resolve("config.xml");
+        var xmlContent = "<?xml version=\"1.0\"?>\n<root><element>value</element></root>";
         Files.write(xmlFile, xmlContent.getBytes());
 
-        String promptContent = "\\i " + xmlFile;
+        var promptContent = "\\i " + xmlFile;
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt prompt = new Prompt(promptFile, props);
-        List<String> result = prompt.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        String expected = "```xml\n" +
-                          "<!--" + xmlFile.toAbsolutePath() + "-->\n" +
-                          xmlContent + "\n```";
-        assertEquals(expected, String.join("\n", result));
+        var expected = "```xml\n" +
+                       "<!--" + xmlFile.toAbsolutePath() + "-->\n" +
+                       xmlContent + "\n```\n";
+        assertEquals(expected, prompt.preview());
     }
 
     @Test
@@ -122,46 +115,40 @@ class PromptTest {
     void handleEmptyPromptFile() throws IOException {
         Files.write(promptFile, new byte[0]);
 
-        Prompt builder = new Prompt(promptFile, props);
-        List<String> result = builder.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
+        assertEquals("", prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка неизвестного тега замены")
     void handleUnknownTag() throws IOException {
-        String promptContent = "Text \\unknownTag some/path More text";
+        var promptContent = "Text \\unknownTag some/path More text";
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile, props);
-        List<String> result = builder.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        assertEquals(1, result.size());
-        assertEquals("Text \\unknownTag some/path More text", result.get(0));
+        assertEquals("Text \\unknownTag some/path More text\n", prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка тега c переводом строки в конце и пробелами вначале")
     void handleTagAtEndOfLine() throws IOException {
-        Path externalFile = tempDir.resolve("end.txt");
+        var externalFile = tempDir.resolve("end.txt");
         Files.write(externalFile, "External file content".getBytes());
 
-        String promptContent = String.format("  \\i %s\n", externalFile);
+        var promptContent = String.format("  \\i %s\n", externalFile);
         Files.write(promptFile, promptContent.getBytes());
 
-        Prompt builder = new Prompt(promptFile, props);
-        List<String> result = builder.getUserLines();
+        var prompt = new Prompt(promptFile, props);
 
-        assertEquals(1, result.size());
-        assertEquals("External file content", result.get(0));
+        assertEquals("External file content\n", prompt.preview());
     }
 
     @Test
     @DisplayName("Обработка несуществующего файла для тега \\i")
     void handleNonExistentFileForTag() throws IOException {
-        String promptContent = "\\i /non/existent/path.txt More text";
+        var promptContent = "\\i /non/existent/path.txt More text";
         Files.write(promptFile, promptContent.getBytes());
 
         assertThrows(Exception.class, () -> new Prompt(promptFile, props));

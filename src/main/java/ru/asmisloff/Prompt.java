@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.asmisloff.tool.AskUserTool;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -32,10 +33,10 @@ public class Prompt {
     private String systemPrompt;
 
     /**
-     * Элементы пользовательского промпта.
+     * Блоки разговора в порядке следования.
      */
     @Getter
-    private final List<String> userLines = new ArrayList<>();
+    private final List<MessageBlock> conversation = new ArrayList<>();
 
     /**
      * Функции замены. Ключ - тег, значение - функция, принимающая исходную строку и возвращающая замененную.
@@ -62,7 +63,12 @@ public class Prompt {
     private int idx = 0;
 
     /**
-     * Создает промпт, загружая шаблон из файла и применяя замены.
+     * Временный список для раскрытия тегов перед разбором ASK_USER-блоков.
+     */
+    private final List<String> expandedLines;
+
+    /**
+     * Создает промпт, загружая шаблон из файла, раскрывая теги и разбирая блоки ASK_USER.
      *
      * @param promptFilePath путь к файлу с шаблоном промпта.
      * @param props          конфигурация приложения.
@@ -71,20 +77,68 @@ public class Prompt {
     public Prompt(@NotNull Path promptFilePath, @NotNull Props props) {
         this.props = props;
         var template = FileUtil.readLines(promptFilePath);
+
+        expandedLines = new ArrayList<>();
         for (var line : template) {
             var replace = getReplacementFunction(line);
             if (replace != null) {
                 replace.accept(line);
             } else {
-                userLines.add(line);
+                expandedLines.add(line);
             }
         }
+
+        var currentRole = Role.USER;
+        var currentBlock = new ArrayList<String>();
+        for (var line : expandedLines) {
+            if (line.contains(AskUserTool.MARKER_OPEN)) {
+                flushBlock(currentBlock, currentRole);
+                currentRole = Role.ASSISTANT;
+            } else if (line.contains(AskUserTool.MARKER_CLOSE)) {
+                flushBlock(currentBlock, currentRole);
+                currentRole = Role.USER;
+            } else {
+                currentBlock.add(line);
+            }
+        }
+        flushBlock(currentBlock, currentRole);
+
         if (systemPrompt == null) {
             systemPrompt = props.getSystemPrompts().get("code");
             if (systemPrompt != null) {
                 log.debug("Системный промпт не задан явно. По умолчанию выбран code.");
             }
         }
+    }
+
+    private void flushBlock(List<String> block, Role role) {
+        if (!block.isEmpty()) {
+            conversation.add(new MessageBlock(role, List.copyOf(block)));
+            block.clear();
+        }
+    }
+
+    /**
+     * Возвращает строковое представление промпта для предварительного просмотра.
+     * Строки пользователя выводятся как есть, строки ассистента обрамляются
+     * в маркеры {@link AskUserTool#MARKER_OPEN} и {@link AskUserTool#MARKER_CLOSE}.
+     *
+     * @return промпт для предварительного просмотра.
+     */
+    public String preview() {
+        var sb = new StringBuilder();
+        for (var block : conversation) {
+            if (block.role() == Role.ASSISTANT) {
+                sb.append(AskUserTool.MARKER_OPEN).append('\n');
+            }
+            for (var line : block.lines()) {
+                sb.append(line).append('\n');
+            }
+            if (block.role() == Role.ASSISTANT) {
+                sb.append(AskUserTool.MARKER_CLOSE).append('\n');
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -162,7 +216,7 @@ public class Prompt {
     }
 
     /**
-     * Добавляет содержимое файла в userLines.
+     * Добавляет содержимое файла в expandedLines.
      * Для файлов с кодом оборачивает содержимое в markdown-блок, а путь к файлу вставляется
      * комментарием в первой строке блока (стиль комментария зависит от типа файла).
      *
@@ -177,12 +231,12 @@ public class Prompt {
                 .ifPresentOrElse(
                         attributes -> {
                             var commentLine = "%s%s%s".formatted(attributes.commentPrefix, fileName, attributes.commentSuffix);
-                            userLines.add(attributes.langMark);
-                            userLines.add(commentLine);
-                            userLines.add(FileUtil.getFileContent(path));
-                            userLines.add("```");
+                            expandedLines.add(attributes.langMark);
+                            expandedLines.add(commentLine);
+                            expandedLines.add(FileUtil.getFileContent(path));
+                            expandedLines.add("```");
                         },
-                        () -> userLines.add(FileUtil.getFileContent(path))
+                        () -> expandedLines.add(FileUtil.getFileContent(path))
                 );
     }
 
@@ -194,5 +248,19 @@ public class Prompt {
      * @param commentPrefix последовательность символов, открывающая комментарий в коде.
      * @param commentSuffix последовательность символов, закрывающая комментарий в коде.
      */
-    public record FileTypeAttributes(String ext, String langMark, String commentPrefix, String commentSuffix) {}
+    public record FileTypeAttributes(String ext, String langMark, String commentPrefix, String commentSuffix) {
+    }
+
+    /**
+     * Роль сообщения в разговоре.
+     */
+    public enum Role {
+        USER, ASSISTANT
+    }
+
+    /**
+     * Блок сообщений одной роли.
+     */
+    public record MessageBlock(Role role, List<String> lines) {
+    }
 }

@@ -54,7 +54,7 @@ public class SendPromptCommand implements Command {
      */
     @Override
     public void exec(String... args) {
-        log.debug(String.join("\n", prompt.getUserLines()));
+        log.debug("\n" + prompt.preview());
         log.info("Используемая модель: {}", model);
 
         var paramsBuilder = ChatCompletionCreateParams.builder()
@@ -65,7 +65,14 @@ public class SendPromptCommand implements Command {
             paramsBuilder.addTool(toolClass);
         }
 
-        prompt.getUserLines().forEach(paramsBuilder::addUserMessage);
+        for (var block : prompt.getConversation()) {
+            for (var line : block.lines()) {
+                switch (block.role()) {
+                    case USER -> paramsBuilder.addUserMessage(line);
+                    case ASSISTANT -> paramsBuilder.addAssistantMessage(line);
+                }
+            }
+        }
 
         var client = new OpenAIOkHttpClient.Builder()
                 .baseUrl(props.getBaseUrl())

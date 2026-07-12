@@ -36,6 +36,6 @@ public class PreviewCommand implements Command {
             );
         }
         var prompt = new Prompt(Path.of(args[0]), props);
-        prompt.getUserLines().forEach(System.out::println);
+        System.out.print(prompt.preview());
     }
 }
