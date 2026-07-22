@@ -91,10 +91,10 @@ public class Prompt {
         var currentRole = Role.USER;
         var currentBlock = new ArrayList<String>();
         for (var line : expandedLines) {
-            if (line.contains(AskUserTool.MARKER_OPEN)) {
+            if (line.stripLeading().startsWith(AskUserTool.MARKER_OPEN)) {
                 flushBlock(currentBlock, currentRole);
                 currentRole = Role.ASSISTANT;
-            } else if (line.contains(AskUserTool.MARKER_CLOSE)) {
+            } else if (line.stripLeading().startsWith(AskUserTool.MARKER_CLOSE)) {
                 flushBlock(currentBlock, currentRole);
                 currentRole = Role.USER;
             } else {
