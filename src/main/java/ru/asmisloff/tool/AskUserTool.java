@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.jetbrains.annotations.Nullable;
 import ru.asmisloff.App;
 
 import java.io.IOException;
@@ -30,7 +31,8 @@ public class AskUserTool implements Tool {
     private String question;
 
     @Override
-    public void exec() {
+    @Nullable
+    public String exec() {
         log.info("AskUser: {}", question);
         var props = App.getProps();
         var promptFile = Path.of(props.getPromptFileName());
@@ -45,5 +47,6 @@ public class AskUserTool implements Tool {
         } catch (IOException e) {
             log.error("Ошибка записи вопроса в {}", promptFile, e);
         }
+        return null;
     }
 }

@@ -1,5 +1,6 @@
 package ru.asmisloff.command;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.asmisloff.Props;
 
 import java.util.Map;
@@ -25,7 +26,8 @@ public class CommandRegistry {
                 "find", new FindCommand(),
                 "preview", new PreviewCommand(props),
                 "save-code", saveCodeCommand,
-                "send-and-save", new SendAndSaveAllCommand(sendPromptCommand, saveCodeCommand)
+                "send-and-save", new SendAndSaveAllCommand(sendPromptCommand, saveCodeCommand),
+                "conv", new ConversationCommand(new ObjectMapper(), props)
         );
     }
 

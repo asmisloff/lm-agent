@@ -2,6 +2,7 @@ package ru.asmisloff.tool;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openai.models.chat.completions.ChatCompletionMessageFunctionToolCall;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
@@ -17,7 +18,7 @@ import java.util.Map;
 @UtilityClass
 public class ToolRegistry {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper(); // todo: снаружи
 
     /**
      * Сопоставление простого имени класса → класс инструмента
@@ -33,7 +34,7 @@ public class ToolRegistry {
      *
      * @return коллекция классов, реализующих {@link Tool}
      */
-    public static Collection<Class<? extends Tool>> getToolKnownClasses() {
+    public static Collection<Class<? extends Tool>> getKnownToolClasses() {
         return TOOLS.values();
     }
 
@@ -60,10 +61,21 @@ public class ToolRegistry {
     public static void execTool(ToolCallAccumulator acc) {
         try {
             objectMapper
-                    .readValue(acc.getArguments(), ToolRegistry.getToolClass(acc.getName()))
+                    .readValue(acc.getArguments(), getToolClass(acc.getName()))
                     .exec();
         } catch (JsonProcessingException ex) {
             log.error("Некорректный вызов инструмента {}: {}", acc.getName(), acc.getArguments(), ex);
+        }
+    }
+
+    public static String execTool(ChatCompletionMessageFunctionToolCall.Function func) {
+        try {
+            return objectMapper
+                    .readValue(func.arguments(), getToolClass(func.name()))
+                    .exec();
+        } catch (JsonProcessingException ex) {
+            log.error("Некорректный вызов инструмента {}: {}", func.name(), func.arguments(), ex);
+            return ex.getMessage();
         }
     }
 }

@@ -23,6 +23,7 @@ public class Props {
     private static final String API_KEY = "api-key";
     private static final String PROMPT_FILENAME = "prompt-filename";
     private static final String ANSWER_FILENAME = "answer-filename";
+    private static final String HISTORY_FILE_NAME = "history-file";
     private static final String MODEL_ALIASES = "model-aliases";
     private static final String SYSTEM_PROMPTS = "system-prompts";
 
@@ -57,6 +58,12 @@ public class Props {
     private final String answerFileName;
 
     /**
+     * Имя файла с историей диалога.
+     */
+    @Getter
+    private final String historyFileName;
+
+    /**
      * Псевдонимы моделей.
      */
     @Getter
@@ -78,6 +85,7 @@ public class Props {
         apiKey = getStringOrElse(props, API_KEY, null);
         promptFileName = getStringOrElse(props, PROMPT_FILENAME, "prompt.md");
         answerFileName = getStringOrElse(props, ANSWER_FILENAME, "answer.md");
+        historyFileName = getStringOrElse(props, HISTORY_FILE_NAME, "hist.json");
         modelAliases = getDict(props, MODEL_ALIASES);
         systemPrompts = getDict(props, SYSTEM_PROMPTS);
         validate();

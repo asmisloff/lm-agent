@@ -18,8 +18,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
  * Инструмент сохранения текста в файл.
- * Создаёт файл по указанному пути, записывает в него переданное содержимое,
- * а затем добавляет в Git (только вновь созданные файлы).
+ * Создаёт файл по указанному пути, записывает в него переданное содержимое, вновь созданные файлы добавляет в Git.
  */
 @Data
 @Log4j2
@@ -51,12 +50,12 @@ public class SaveToFileTool implements Tool {
      * После успешной записи вновь созданный файл добавляется в Git ({@code git add}).
      */
     @Override
-    public void exec() {
+    public String exec() {
         log.info("Сохранение текста в файл: {}", path);
         Path resolvedPath = CWD.resolve(path).normalize();
         if (!resolvedPath.startsWith(CWD)) {
             log.warn("Попытка записи за пределы рабочей директории ({}): {}", CWD, resolvedPath);
-            return;
+            return "Попытка записи за пределы рабочей директории";
         }
         boolean isNewFile = !Files.exists(resolvedPath);
         try (var writer = Files.newBufferedWriter(resolvedPath, isNewFile ? CREATE_NEW : WRITE)) {
@@ -65,14 +64,15 @@ public class SaveToFileTool implements Tool {
                 writer.write(System.lineSeparator());
             }
             log.info("Файл успешно сохранен: {}", path);
-        } catch (IOException e) {
-            log.error("Ошибка записи в файл {}", path, e);
-            return;
+        } catch (IOException ex) {
+            log.error("Ошибка записи в файл {}", path, ex);
+            return "Ошибка записи в файл: " + ex.getMessage();
         }
 
         if (isNewFile) {
             GitUtil.gitAdd(resolvedPath);
         }
+        return "Файл успешно сохранен";
     }
 
     /**

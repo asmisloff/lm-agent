@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
@@ -26,7 +27,9 @@ public class NoOpTool implements Tool {
      * Логирует факт вызова заглушки с переданными аргументами.
      */
     @Override
-    public void exec() {
+    @Nullable
+    public String exec() {
         log.warn("Вызван неизвестный инструмент с аргументами: {}", args.toString());
+        return null;
     }
 }
