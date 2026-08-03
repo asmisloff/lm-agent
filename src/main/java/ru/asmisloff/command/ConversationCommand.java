@@ -147,17 +147,16 @@ public class ConversationCommand implements Command {
 
         private History(String filename) {
             file = getOrCreateFile(Path.of(filename));
-
             paramsBuilder = ChatCompletionCreateParams.builder().model(model);
-            paramsBuilder.addSystemMessage(prompt.getSystemPrompt());
-            for (var toolClass : ToolRegistry.getKnownToolClasses()) {
-                paramsBuilder.addTool(toolClass);
-            }
-
             try {
-                objectMapper
-                        .readValue(file, new TypeReference<List<ChatCompletionMessageParam>>() {})
-                        .forEach(paramsBuilder::addMessage);
+                var messages = objectMapper
+                        .readValue(file, new TypeReference<List<ChatCompletionMessageParam>>() {});
+                if (messages.isEmpty() || !messages.get(0).isSystem()) {
+                    paramsBuilder.addSystemMessage(prompt.getSystemPrompt());
+                    for (var toolClass : ToolRegistry.getKnownToolClasses()) {
+                        paramsBuilder.addTool(toolClass);
+                    }
+                }
             } catch (IOException ex) {
                 log.error("Некорректная структура файла истории", ex);
                 throw new IllegalStateException(ex);

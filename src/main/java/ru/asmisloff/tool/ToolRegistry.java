@@ -25,8 +25,8 @@ public class ToolRegistry {
      */
     private static final Map<String, Class<? extends Tool>> TOOLS = Map.of(
             SaveToFileTool.class.getSimpleName(), SaveToFileTool.class,
-            AskUserTool.class.getSimpleName(), AskUserTool.class,
-            ReadFileTool.class.getSimpleName(), ReadFileTool.class
+            ReadFileTool.class.getSimpleName(), ReadFileTool.class,
+            GetProjectStructure.class.getSimpleName(), GetProjectStructure.class
     );
 
     /**

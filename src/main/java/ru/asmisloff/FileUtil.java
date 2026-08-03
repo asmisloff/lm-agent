@@ -1,5 +1,6 @@
 package ru.asmisloff;
 
+import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
@@ -11,9 +12,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Log4j2
 @UtilityClass
@@ -39,6 +38,16 @@ public class FileUtil {
      */
     private static final String SEARCH_MARKER = "--- SEARCH ---";
     private static final String REPLACE_MARKER = "--- REPLACE ---";
+
+    /**
+     * Расширения файлов, включаемые в карту проекта.
+     */
+    private static final Set<String> PROJECT_MAP_EXTENSIONS = Set.of(".java", ".xml", ".properties");
+
+    /**
+     * Директории, исключаемые из обхода при построении карты проекта.
+     */
+    private static final Set<String> PROJECT_MAP_EXCLUDED_DIRS = Set.of("target", ".git", ".idea");
 
     /**
      * Читает содержимое файла в список строк.
@@ -144,6 +153,32 @@ public class FileUtil {
         return res;
     }
 
+    public Path cwd() {
+        return Path.of(System.getProperty("user.dir"));
+    }
+
+    /**
+     * Строит текстовое дерево проекта в формате команды {@code tree}.
+     * Включает только файлы с расширениями {@code .java}, {@code .xml}, {@code .properties}.
+     * Игнорирует директории {@code target} и {@code .git}.
+     *
+     * @param root корневая директория проекта
+     * @return строковое представление дерева проекта
+     */
+    public static String buildProjectTree(Path root) {
+        TreeNode treeRoot = new TreeNode(root.getFileName().toString(), true);
+        try (var files = Files.walk(root)) {
+            files
+                    .filter(Files::isRegularFile)
+                    .filter(FileUtil::hasProjectMapExtension)
+                    .filter(path -> isNotExcluded(path, root))
+                    .forEach(path -> insertIntoTree(treeRoot, root.relativize(path)));
+        } catch (IOException e) {
+            throw new IllegalStateException("Не удалось построить дерево проекта", e);
+        }
+        return renderTree(treeRoot);
+    }
+
     /**
      * Проверяет, содержит ли строка указанную подстроку без учета регистра.
      *
@@ -204,6 +239,110 @@ public class FileUtil {
 
         if (!search.isEmpty() || !replace.isEmpty()) {
             patch.addEntry(search.toString(), replace.toString());
+        }
+    }
+
+    /**
+     * Проверяет, что путь не содержит исключаемых директорий.
+     */
+    private static boolean isNotExcluded(Path path, Path root) {
+        Path relative = root.relativize(path);
+        for (Path component : relative) {
+            if (PROJECT_MAP_EXCLUDED_DIRS.contains(component.toString())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Проверяет, что имя файла заканчивается на одно из допустимых расширений.
+     */
+    private static boolean hasProjectMapExtension(Path path) {
+        String name = path.getFileName().toString();
+        for (String PROJECT_MAP_EXTENSION : PROJECT_MAP_EXTENSIONS) {
+            if (name.endsWith(PROJECT_MAP_EXTENSION)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Вставляет относительный путь в дерево, создавая промежуточные узлы-директории.
+     */
+    private static void insertIntoTree(TreeNode root, Path relativePath) {
+        TreeNode current = root;
+        int nameCount = relativePath.getNameCount();
+        for (int i = 0; i < nameCount; i++) {
+            String name = relativePath.getName(i).toString();
+            boolean isDir = i < nameCount - 1;
+            TreeNode child = current.findChild(name);
+            if (child == null) {
+                child = new TreeNode(name, isDir);
+                current.children.add(child);
+            }
+            current = child;
+        }
+    }
+
+    /**
+     * Рендерит дерево в строку с символами псевдографики.
+     */
+    private static String renderTree(TreeNode root) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(root.name).append('\n');
+        renderChildren(root, "", sb);
+        return sb.toString();
+    }
+
+    /**
+     * Рекурсивно рендерит дочерние узлы.
+     *
+     * @param parent родительский узел
+     * @param prefix префикс отступов для текущего уровня
+     * @param buf    буфер для результата
+     */
+    private static void renderChildren(TreeNode parent, String prefix, StringBuilder buf) {
+        var children = parent.children;
+        children.sort(Comparator
+                .comparing(TreeNode::isDir)
+                .reversed()
+                .thenComparing(TreeNode::getName)
+        );
+        for (int i = 0; i < children.size(); i++) {
+            TreeNode child = children.get(i);
+            boolean isLast = i == children.size() - 1;
+            String connector = isLast ? "└── " : "├── ";
+            buf.append(prefix).append(connector).append(child.name).append('\n');
+            if (child.isDir) {
+                String childPrefix = prefix + (isLast ? "    " : "│   ");
+                renderChildren(child, childPrefix, buf);
+            }
+        }
+    }
+
+    /**
+     * Узел дерева проекта.
+     */
+    @Getter
+    private static class TreeNode {
+        final String name;
+        final boolean isDir;
+        final List<TreeNode> children = new ArrayList<>();
+
+        TreeNode(String name, boolean isDir) {
+            this.name = name;
+            this.isDir = isDir;
+        }
+
+        TreeNode findChild(String name) {
+            for (TreeNode child : children) {
+                if (child.name.equals(name)) {
+                    return child;
+                }
+            }
+            return null;
         }
     }
 

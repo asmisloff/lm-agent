@@ -1,5 +1,6 @@
 package ru.asmisloff;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,6 +36,8 @@ class FileUtilTest {
         assertEquals(expected, Files.readString(file));
     }
 
+    // ======== find ========
+
     @Test
     @DisplayName("Поиск существующего файла по полному совпадению (без учета регистра)")
     void find_existingFileCaseInsensitive_returnsFile() throws IOException {
@@ -49,8 +52,6 @@ class FileUtilTest {
 
         assertEquals(targetFile.toString(), out.toString());
     }
-
-    // ======== find ========
 
     @Test
     @DisplayName("Поиск по частичному совпадению имени")
@@ -133,26 +134,26 @@ class FileUtilTest {
                 //A.java
                 Java code
                 ```
-
+                
                 ```sql
                 --B.sql
                 sql query
                 ```
-
+                
                 ```kotlin
                 // C.kt
                 kotlin kode
                 ```
-
+                
                 ```xml
                 <!-- D.xml -->
                 xml code
                 ```
-
+                
                 ```
                 Отсутствует md-метка
                 ```
-
+                
                 ```unknown
                 Неизвестный язык. Должен быть пропущен.
                 ```
@@ -273,7 +274,7 @@ class FileUtilTest {
                 //MyClass.java
                 public class MyClass {}
                 ```
-
+                
                 [PATCH_BEGIN: OtherClass.java]
                 --- SEARCH ---
                 void old() {}
@@ -336,6 +337,176 @@ class FileUtilTest {
         assertEquals("        int x = 0;" + nl + "        return x;" + nl, patch.getSearch(0));
         assertEquals("        int x = 99;" + nl + "        return x;" + nl, patch.getReplace(0));
     }
+
+    // ======== buildProjectTree ========
+
+    @Test
+    @DisplayName("Пустая директория без файлов — только имя корня")
+    void buildProjectTree_emptyDir_returnsOnlyRoot() {
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        assertEquals(tempDir.getFileName().toString() + "\n", tree);
+    }
+
+    @Test
+    @DisplayName("Файлы неподдерживаемых расширений игнорируются")
+    void buildProjectTree_unsupportedExtensions_ignored() throws IOException {
+        Files.createFile(tempDir.resolve("readme.txt"));
+        Files.createFile(tempDir.resolve("script.py"));
+        Files.createFile(tempDir.resolve("image.png"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        assertEquals(tempDir.getFileName().toString() + "\n", tree);
+    }
+
+    @Test
+    @DisplayName("Файлы поддерживаемых расширений попадают в дерево")
+    void buildProjectTree_supportedExtensions_included() throws IOException {
+        Files.createFile(tempDir.resolve("App.java"));
+        Files.createFile(tempDir.resolve("config.xml"));
+        Files.createFile(tempDir.resolve("messages.properties"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "├── App.java\n"
+                + "├── config.xml\n"
+                + "└── messages.properties\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Директория target исключается из дерева")
+    void buildProjectTree_excludesTargetDir() throws IOException {
+        Path targetDir = tempDir.resolve("target");
+        Files.createDirectory(targetDir);
+        Files.createFile(targetDir.resolve("generated.java"));
+        Files.createFile(tempDir.resolve("App.java"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "└── App.java\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Директория .git исключается из дерева")
+    void buildProjectTree_excludesGitDir() throws IOException {
+        Path gitDir = tempDir.resolve(".git");
+        Files.createDirectory(gitDir);
+        Files.createFile(gitDir.resolve("config.xml"));
+        Files.createFile(tempDir.resolve("App.java"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "└── App.java\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Вложенные директории корректно отображаются")
+    void buildProjectTree_nestedDirs_renderedCorrectly() throws IOException {
+        Path subDir = tempDir.resolve("sub");
+        Files.createDirectory(subDir);
+        Files.createFile(subDir.resolve("Child.java"));
+        Files.createFile(tempDir.resolve("Root.java"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "├── sub\n"
+                + "│   └── Child.java\n"
+                + "└── Root.java\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Глубокая вложенность — несколько уровней")
+    void buildProjectTree_deepNesting_renderedCorrectly() throws IOException {
+        Path l1 = tempDir.resolve("src");
+        Path l2 = l1.resolve("main");
+        Path l3 = l2.resolve("java");
+        Files.createDirectories(l3);
+        Files.createFile(l3.resolve("Deep.java"));
+        Files.createFile(l2.resolve("resources.xml"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "└── src\n"
+                + "    └── main\n"
+                + "        ├── java\n"
+                + "        │   └── Deep.java\n"
+                + "        └── resources.xml\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Директории перед файлами, обе группы по алфавиту")
+    void buildProjectTree_sorting_directoriesFirstThenAlphabetical() throws IOException {
+        Files.createFile(tempDir.resolve("B.java"));
+        Path dirA = tempDir.resolve("a_dir");
+        Path dirZ = tempDir.resolve("z_dir");
+        Files.createDirectory(dirA);
+        Files.createDirectory(dirZ);
+        Files.createFile(dirA.resolve("X.xml"));
+        Files.createFile(dirZ.resolve("M.properties"));
+        Files.createFile(tempDir.resolve("C.java"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "├── a_dir\n"
+                + "│   └── X.xml\n"
+                + "├── z_dir\n"
+                + "│   └── M.properties\n"
+                + "├── B.java\n"
+                + "└── C.java\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @DisplayName("Смешанный сценарий: исключаемые и включаемые файлы/директории")
+    void buildProjectTree_mixedScenario_correctOutput() throws IOException {
+        // Поддерживаемые
+        Files.createFile(tempDir.resolve("pom.xml"));
+        Path src = tempDir.resolve("src");
+        Files.createDirectories(src);
+        Files.createFile(src.resolve("Main.java"));
+        Files.createFile(src.resolve("Messages.properties"));
+
+        // Исключаемые
+        Path target = tempDir.resolve("target");
+        Files.createDirectory(target);
+        Files.createFile(target.resolve("generated.java"));
+
+        Path git = tempDir.resolve(".git");
+        Files.createDirectory(git);
+        Files.createFile(git.resolve("config.xml"));
+
+        // Неподдерживаемое расширение
+        Files.createFile(tempDir.resolve("notes.txt"));
+
+        String tree = FileUtil.buildProjectTree(tempDir);
+
+        String expected = tempDir.getFileName() + "\n"
+                + "├── src\n"
+                + "│   ├── Main.java\n"
+                + "│   └── Messages.properties\n"
+                + "└── pom.xml\n";
+        assertEquals(expected, tree);
+    }
+
+    @Test
+    @Disabled
+    void buildProjectTree_actual() {
+        System.out.println(FileUtil.buildProjectTree(FileUtil.cwd()));
+    }
+
+    // ======== вспомогательные методы ========
 
     private Path createMarkdownFile(String content) throws IOException {
         Path file = tempDir.resolve("test.md");
