@@ -37,6 +37,7 @@ public class ConversationCommand implements Command {
     private final String model;
     private final OpenAIClient client;
     private final String historyFileName;
+    private final String answerFileName;
 
     public ConversationCommand(ObjectMapper objectMapper, Props props) {
         this.objectMapper = objectMapper;
@@ -52,6 +53,7 @@ public class ConversationCommand implements Command {
                 .build();
 
         this.historyFileName = props.getHistoryFileName();
+        this.answerFileName = props.getAnswerFileName();
     }
 
     @Override
@@ -108,8 +110,9 @@ public class ConversationCommand implements Command {
             var assistantMessageBuilder = ChatCompletionAssistantMessageParam.builder();
             assistantMessageBuilder.toolCalls(toolCalls);
             modelResponseMessage.content().ifPresent(content -> {
-                System.out.println(content);
+                log.info(content);
                 assistantMessageBuilder.content(content);
+                writeAnswerToFile(content);
             });
             history.paramsBuilder.addMessage(ChatCompletionMessageParam.ofAssistant(assistantMessageBuilder.build()));
 
@@ -129,13 +132,27 @@ public class ConversationCommand implements Command {
             }
         } else {
             modelResponseMessage.content().ifPresent(content -> {
-                System.out.println(content);
+                log.info(content);
                 history.paramsBuilder.addAssistantMessage(content);
+                writeAnswerToFile(content);
             });
         }
         return toolCalls != null;
     }
 
+    private void writeAnswerToFile(String content) {
+        try {
+            Files.writeString(
+                    Path.of(answerFileName),
+                    content,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (IOException e) {
+            log.error("Не удалось записать ответ в файл {}", answerFileName, e);
+            throw new IllegalStateException("Не удалось записать ответ в файл " + answerFileName, e);
+        }
+    }
 
     /**
      * История диалога с моделью
