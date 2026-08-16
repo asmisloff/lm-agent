@@ -31,6 +31,7 @@ public class GetProjectStructure implements Tool {
     @Nullable
     @Override
     public String exec() {
+        log.info("Вызов инструмента GetProjectStructure");
         Path cwd = FileUtil.cwd();
         if (tree) {
             return FileUtil.buildProjectTree(cwd);

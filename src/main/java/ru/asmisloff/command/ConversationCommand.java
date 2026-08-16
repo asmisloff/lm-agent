@@ -170,10 +170,11 @@ public class ConversationCommand implements Command {
                         .readValue(file, new TypeReference<List<ChatCompletionMessageParam>>() {});
                 if (messages.isEmpty() || !messages.get(0).isSystem()) {
                     paramsBuilder.addSystemMessage(prompt.getSystemPrompt());
-                    for (var toolClass : ToolRegistry.getKnownToolClasses()) {
-                        paramsBuilder.addTool(toolClass);
-                    }
                 }
+                for (var toolClass : ToolRegistry.getKnownToolClasses()) {
+                    paramsBuilder.addTool(toolClass);
+                }
+                messages.forEach(paramsBuilder::addMessage);
             } catch (IOException ex) {
                 log.error("Некорректная структура файла истории", ex);
                 throw new IllegalStateException(ex);
