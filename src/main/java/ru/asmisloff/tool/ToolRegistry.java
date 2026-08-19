@@ -7,6 +7,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,6 +30,8 @@ public class ToolRegistry {
             GetProjectStructure.class.getSimpleName(), GetProjectStructure.class
     );
 
+    private static final List<Class<? extends Tool>> ONE_SHOT_TOOLS = List.of(SaveToFileTool.class);
+
     /**
      * Возвращает все зарегистрированные классы инструментов.
      *
@@ -36,6 +39,10 @@ public class ToolRegistry {
      */
     public static Collection<Class<? extends Tool>> getKnownToolClasses() {
         return TOOLS.values();
+    }
+
+    public static Collection<Class<? extends Tool>> getOneShotToolClasses() {
+        return ONE_SHOT_TOOLS;
     }
 
     /**

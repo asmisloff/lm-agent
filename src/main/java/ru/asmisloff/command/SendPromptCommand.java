@@ -61,7 +61,7 @@ public class SendPromptCommand implements Command {
                 .model(model)
                 .addSystemMessage(getSystemPrompt(prompt));
 
-        for (var toolClass : ToolRegistry.getKnownToolClasses()) {
+        for (var toolClass : ToolRegistry.getOneShotToolClasses()) {
             paramsBuilder.addTool(toolClass);
         }
 
